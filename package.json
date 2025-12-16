@@ -1,0 +1,23 @@
+{
+  "name": "agora-media-services-demo",
+  "version": "1.0.0",
+  "description": "Demo application for Agora Media Services (Media Pull, Media Push, Media Gateway, Cloud Transcoding)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "keywords": [
+    "agora",
+    "media",
+    "streaming",
+    "rtc"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

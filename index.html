@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agora Media Services Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+    <link rel="stylesheet" href="modern-ui-library.css">
+    <!-- Token Builder Libraries -->
+    <script src="pako.min.js"></script>
+    <script src="AccessToken2.js"></script>
+    <script src="RtcTokenBuilder2.js"></script>
+    <style>
+        body {
+            overflow-y: auto;
+            background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a) !important;
+        }
+        .video-player-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 1rem auto;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 1rem;
+            padding: 1rem;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        .video-player {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 0.5rem;
+        }
+        .video-player video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .video-player-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen">
+    <!-- Popup notification section -->
+    <div id="popup-section" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"></div>
+    
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold gradient-text-primary">Agora Media Services Demo</h1>
+            <button onclick="toggleAuthPopup()" class="modern-btn modern-btn-secondary">
+                Set API Credentials
+            </button>
+        </div>
+        
+        <!-- Important Note -->
+        <div class="modern-panel p-4 mb-4 bg-blue-900/20 border-blue-600/50">
+            <div class="flex items-start gap-3">
+                <div class="text-blue-400 text-xl">ℹ️</div>
+                <div class="flex-1">
+                    <p class="font-semibold text-blue-400 mb-2">Important: Serve from Web Server</p>
+                    <p class="text-sm text-gray-300 mb-2">This demo must be served from a web server (not opened directly as file://). To run:</p>
+                    <ol class="text-sm text-gray-300 list-decimal list-inside space-y-1">
+                        <li>Open terminal in this directory</li>
+                        <li>Run: <code class="bg-gray-800 px-2 py-1 rounded">python3 -m http.server 8000</code> (or <code class="bg-gray-800 px-2 py-1 rounded">npx serve</code>)</li>
+                        <li>Open <code class="bg-gray-800 px-2 py-1 rounded">http://localhost:8000</code> in your browser</li>
+                    </ol>
+                    <p class="text-xs text-gray-400 mt-2">If requests work in curl/Postman but not in browser, this is likely a CORS issue that requires serving from a web server.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Video Players (Above all tabs) -->
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+            <!-- Host View -->
+            <div class="video-player-container">
+                <h3 class="text-lg font-semibold mb-2">Host View</h3>
+                <div id="host-video-player" class="video-player video-player-placeholder">
+                    <div>No video stream - Join as host to view</div>
+                </div>
+                <div class="mt-4 space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input id="host-channel" type="text" placeholder="Channel Name" value="testChannel" />
+                        <input id="host-uid" type="text" placeholder="UID (optional)" />
+                    </div>
+                    <div class="flex gap-2">
+                        <input id="host-token" type="text" placeholder="Token (optional)" class="flex-1" />
+                        <button onclick="generateToken('host')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="joinChannelAsHost()" class="modern-btn modern-btn-primary">Join as Host</button>
+                        <button onclick="leaveHostChannel()" class="modern-btn modern-btn-danger">Leave</button>
+                    </div>
+                    <div id="host-controls" class="flex gap-2 hidden">
+                        <button id="toggleMicBtn" class="modern-btn modern-btn-secondary" title="Mute Microphone">
+                            <span id="mic-icon">🎤</span> <span id="mic-text">Mute Mic</span>
+                        </button>
+                        <button id="toggleCameraBtn" class="modern-btn modern-btn-secondary" title="Mute Camera">
+                            <span id="camera-icon">📹</span> <span id="camera-text">Mute Camera</span>
+                        </button>
+                    </div>
+                    <div id="host-status" class="text-sm text-gray-400"></div>
+                </div>
+            </div>
+            
+            <!-- Audience View -->
+            <div class="video-player-container">
+                <h3 class="text-lg font-semibold mb-2">Audience View</h3>
+                <div id="audience-video-player" class="video-player video-player-placeholder">
+                    <div>No video stream - Join as audience to view</div>
+                </div>
+                <div class="mt-4 space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input id="audience-channel" type="text" placeholder="Channel Name" value="testChannel" />
+                        <input id="audience-uid" type="text" placeholder="UID (optional)" />
+                    </div>
+                    <div class="flex gap-2">
+                        <input id="audience-token" type="text" placeholder="Token (optional)" class="flex-1" />
+                        <button onclick="generateToken('audience')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="joinChannelAsAudience()" class="modern-btn modern-btn-secondary">Join as Audience</button>
+                        <button onclick="leaveAudienceChannel()" class="modern-btn modern-btn-danger">Leave</button>
+                    </div>
+                    <div id="audience-status" class="text-sm text-gray-400"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-container">
+            <button class="tab-btn active" data-tab="media-pull">Media Pull</button>
+            <button class="tab-btn" data-tab="media-push">Media Push</button>
+            <button class="tab-btn" data-tab="media-gateway">Media Gateway</button>
+            <button class="tab-btn" data-tab="cloud-transcoding">Cloud Transcoding</button>
+        </div>
+
+        <!-- Media Pull Tab -->
+        <div id="media-pull" class="tab-content active">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Pull Control</h2>
+                    <div class="space-y-4">
+                        <input id="mp-url" type="text" placeholder="Video URL (default AWS URL)" value="https://dev-generic.s3.us-east-2.amazonaws.com/TEST/0113e48fba4b84269590d88eecbb130c_TEST_0.mp4" />
+                        <input id="mp-channel" type="text" placeholder="Channel Name" value="testChannel" />
+                        <input id="mp-uid" type="text" placeholder="UID (optional)" />
+                        <div class="flex gap-2">
+                            <input id="mp-token" type="text" placeholder="Token (optional)" class="flex-1" />
+                            <button onclick="generateToken('mp')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="startMediaPull()" class="modern-btn modern-btn-success">Start Media Pull</button>
+                            <button onclick="listMediaPulls()" class="modern-btn modern-btn-primary">List Media Pulls</button>
+                            <button onclick="updateMediaPull()" class="modern-btn modern-btn-warning">Update Media Pull</button>
+                            <button onclick="deleteMediaPull()" class="modern-btn modern-btn-danger">Delete Media Pull</button>
+                        </div>
+                    </div>
+                    <pre id="mp-response" class="mt-4 min-h-[200px]"></pre>
+                </div>
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Pull ID Management</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-sm text-gray-400">Player ID (auto-filled when created, or enter existing):</label>
+                            <div class="flex gap-2">
+                                <input id="mp-player-id" type="text" placeholder="Player ID will appear here or enter existing ID" class="flex-1" />
+                                <button onclick="copyToClipboard('mp-player-id')" class="modern-btn modern-btn-secondary" title="Copy ID">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Media Pull List</h3>
+                    <div id="mp-list" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Media Push Tab -->
+        <div id="media-push" class="tab-content">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Push Control</h2>
+                    <div class="space-y-4">
+                        <label>Join Method:</label>
+                        <select id="mps-join-method">
+                            <option value="sdk">Join as Host (Agora SDK)</option>
+                            <option value="media-pull">Use Media Pull</option>
+                        </select>
+                        <input id="mps-channel" type="text" placeholder="Channel Name" value="testChannel" />
+                        <input id="mps-uid" type="text" placeholder="UID (optional)" />
+                        <div class="flex gap-2">
+                            <input id="mps-token" type="text" placeholder="Token (optional)" class="flex-1" />
+                            <button onclick="generateToken('mps')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        </div>
+                        <label>Push Destination:</label>
+                        <select id="mps-destination">
+                            <option value="facebook">Facebook</option>
+                            <option value="youtube">YouTube</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <div id="mps-custom-config" class="hidden space-y-2">
+                            <input id="mps-custom-url" type="text" placeholder="RTMP URL" />
+                            <input id="mps-custom-key" type="text" placeholder="Stream Key" />
+                        </div>
+                        <div id="mps-facebook-config" class="space-y-2">
+                            <input id="mps-fb-url" type="text" placeholder="Facebook RTMP URL" value="rtmp://live-api-s.facebook.com:80/rtmp/" />
+                            <input id="mps-fb-key" type="text" placeholder="Facebook Stream Key" />
+                        </div>
+                        <div id="mps-youtube-config" class="hidden space-y-2">
+                            <input id="mps-yt-url" type="text" placeholder="YouTube RTMP URL" value="rtmp://a.rtmp.youtube.com/live2/" />
+                            <input id="mps-yt-key" type="text" placeholder="YouTube Stream Key" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="startMediaPush()" class="modern-btn modern-btn-success">Start Push</button>
+                            <button onclick="listMediaPush()" class="modern-btn modern-btn-primary">List Converters</button>
+                            <button onclick="updateMediaPush()" class="modern-btn modern-btn-warning">Update</button>
+                            <button onclick="deleteMediaPush()" class="modern-btn modern-btn-danger">Delete</button>
+                        </div>
+                    </div>
+                    <pre id="mps-response" class="mt-4 min-h-[200px]"></pre>
+                </div>
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Push ID Management</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-sm text-gray-400">Converter ID (auto-filled when created, or enter existing):</label>
+                            <div class="flex gap-2">
+                                <input id="mps-converter-id" type="text" placeholder="Converter ID will appear here or enter existing ID" class="flex-1" />
+                                <button onclick="copyToClipboard('mps-converter-id')" class="modern-btn modern-btn-secondary" title="Copy ID">Copy</button>
+                            </div>
+                        </div>
+                        <div id="mps-converter-info" class="mt-4 space-y-2">
+                            <p class="text-sm text-gray-400">Converter details will appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Media Gateway Tab -->
+        <div id="media-gateway" class="tab-content">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Gateway Control</h2>
+                    <div class="space-y-4">
+                        <div class="modern-panel">
+                            <h3 class="font-semibold mb-2">OBS WebSocket Setup</h3>
+                            <ol class="text-sm space-y-1 list-decimal list-inside text-gray-300">
+                                <li>Install OBS Studio</li>
+                                <li>Open OBS → Tools → WebSocket Server Settings</li>
+                                <li>Enable WebSocket Server</li>
+                                <li>Set Server Port to 4455</li>
+                                <li>Enable Authentication</li>
+                                <li>Set a custom Server Password</li>
+                            </ol>
+                            <input id="mg-obs-password" type="password" placeholder="OBS WebSocket Password" class="mt-2" />
+                            <input id="mg-obs-port" type="number" placeholder="OBS WebSocket Port" value="4455" class="mt-2" />
+                            <div class="grid grid-cols-2 gap-2 mt-2">
+                                <button onclick="connectOBS()" class="modern-btn modern-btn-success">Connect to OBS</button>
+                                <button onclick="disconnectOBS()" class="modern-btn modern-btn-danger">Disconnect</button>
+                            </div>
+                            <div id="mg-obs-status" class="mt-2 text-sm"></div>
+                        </div>
+                        <input id="mg-channel" type="text" placeholder="Channel Name" value="testChannel" />
+                        <input id="mg-uid" type="text" placeholder="UID (optional)" />
+                        <div class="flex gap-2">
+                            <input id="mg-token" type="text" placeholder="Token (optional)" class="flex-1" />
+                            <button onclick="generateToken('mg')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        </div>
+                        <h3 class="text-lg font-semibold mt-4 mb-2">Streaming Key Operations</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="startMediaGateway()" class="modern-btn modern-btn-success">Create Stream Key</button>
+                            <button onclick="queryMediaGateway()" class="modern-btn modern-btn-primary">Query Stream Key</button>
+                            <button onclick="stopMediaGateway()" class="modern-btn modern-btn-danger">Delete Stream Key</button>
+                        </div>
+                        <h3 class="text-lg font-semibold mt-4 mb-2">Flow Configuration Templates</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input id="mg-template-id" type="text" placeholder="Template ID (e.g., 720p, 1080p)" />
+                            <button onclick="createMediaGatewayTemplate()" class="modern-btn modern-btn-primary">Create/Reset Template</button>
+                            <button onclick="updateMediaGatewayTemplate()" class="modern-btn modern-btn-warning">Update Template</button>
+                            <button onclick="deleteMediaGatewayTemplate()" class="modern-btn modern-btn-danger">Delete Template</button>
+                            <button onclick="setGlobalMediaGatewayTemplate()" class="modern-btn modern-btn-secondary">Set Global Template</button>
+                        </div>
+                        <h3 class="text-lg font-semibold mt-4 mb-2">Streaming Operations</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input id="mg-stream-id" type="text" placeholder="Stream ID (for query/operations)" />
+                            <button onclick="queryStreamingList()" class="modern-btn modern-btn-primary">Query Streaming List</button>
+                            <button onclick="queryStreamingInformation()" class="modern-btn modern-btn-primary">Query Streaming Info</button>
+                            <button onclick="forceDisconnectStream()" class="modern-btn modern-btn-danger">Force Disconnect</button>
+                            <button onclick="muteUnmuteStream()" class="modern-btn modern-btn-warning">Mute/Unmute Stream</button>
+                        </div>
+                    </div>
+                    <pre id="mg-response" class="mt-4 min-h-[200px]"></pre>
+                </div>
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Gateway ID Management</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-sm text-gray-400">Stream Key (auto-filled when created, or enter existing):</label>
+                            <div class="flex gap-2">
+                                <input id="mg-stream-key" type="text" placeholder="Stream Key will appear here or enter existing key" class="flex-1" />
+                                <button onclick="copyToClipboard('mg-stream-key')" class="modern-btn modern-btn-secondary" title="Copy Key">Copy</button>
+                            </div>
+                        </div>
+                        <h3 class="text-lg font-semibold mt-4 mb-2">Gateway Status</h3>
+                        <div id="mg-status" class="space-y-2">
+                            <p class="text-sm text-gray-400">Status will appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cloud Transcoding Tab -->
+        <div id="cloud-transcoding" class="tab-content">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Cloud Transcoding Control</h2>
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold">Builder Token (Required)</h3>
+                        <div class="flex gap-2">
+                            <input id="ct-builder-token" type="text" placeholder="Builder Token (acquire first)" class="flex-1" />
+                            <button onclick="acquireTranscoding()" class="modern-btn modern-btn-primary">Acquire</button>
+                        </div>
+                        <input id="ct-instance-id" type="text" placeholder="Instance ID (optional, auto-generated if empty)" />
+                        
+                        <h3 class="text-lg font-semibold mt-4">Input Source (RTC)</h3>
+                        <input id="ct-input-channel" type="text" placeholder="Input Channel Name" value="testChannel" />
+                        <input id="ct-input-uid" type="text" placeholder="Input UID" value="0" />
+                        <div class="flex gap-2">
+                            <input id="ct-input-token" type="text" placeholder="Input Token" class="flex-1" />
+                            <button onclick="generateToken('ct-input')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        </div>
+                        
+                        <h3 class="text-lg font-semibold mt-4">Output Destination (RTC)</h3>
+                        <input id="ct-output-channel" type="text" placeholder="Output Channel Name (defaults to input)" />
+                        <input id="ct-output-uid" type="text" placeholder="Output UID" value="999" />
+                        <div class="flex gap-2">
+                            <input id="ct-output-token" type="text" placeholder="Output Token (defaults to input)" class="flex-1" />
+                            <button onclick="generateToken('ct-output')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        </div>
+                        
+                        <h3 class="text-lg font-semibold mt-4">Transcoder Settings</h3>
+                        <label class="text-sm text-gray-400">Stream Process Mode:</label>
+                        <select id="ct-stream-mode">
+                            <option value="mix">Mix (default)</option>
+                            <option value="heterogeneous-single">Heterogeneous Single</option>
+                            <option value="single">Single (RTC Relay)</option>
+                        </select>
+                        <input id="ct-idle-timeout" type="number" placeholder="Idle Timeout (seconds)" value="300" min="1" max="86400" />
+                        
+                        <h3 class="text-lg font-semibold mt-4">Canvas Settings</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input id="ct-canvas-width" type="number" placeholder="Canvas Width" value="1280" min="120" max="3840" />
+                            <input id="ct-canvas-height" type="number" placeholder="Canvas Height" value="720" min="120" max="3840" />
+                        </div>
+                        <input id="ct-canvas-color" type="text" placeholder="Canvas Color (decimal RGB, e.g., 0 for black)" value="0" />
+                        <input id="ct-canvas-bg-image" type="text" placeholder="Canvas Background Image URL (optional)" />
+                        <label class="text-sm text-gray-400">Canvas Fill Mode:</label>
+                        <select id="ct-canvas-fill-mode">
+                            <option value="FILL">FILL</option>
+                            <option value="FIT">FIT</option>
+                        </select>
+                        <input id="ct-placeholder-image" type="text" placeholder="Placeholder Image URL (optional)" />
+                        
+                        <h3 class="text-lg font-semibold mt-4">Video Output Options</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input id="ct-video-width" type="number" placeholder="Video Width" value="1280" min="120" max="3840" />
+                            <input id="ct-video-height" type="number" placeholder="Video Height" value="720" min="120" max="3840" />
+                        </div>
+                        <input id="ct-video-bitrate" type="number" placeholder="Video Bitrate (kbps)" value="2200" min="1" max="10000" />
+                        <input id="ct-video-fps" type="number" placeholder="Video FPS" value="30" min="1" max="30" />
+                        <label class="text-sm text-gray-400">Video Codec:</label>
+                        <select id="ct-video-codec">
+                            <option value="H264">H264</option>
+                            <option value="VP8">VP8</option>
+                        </select>
+                        <label class="text-sm text-gray-400">Video Mode (optional, RAW for no transcoding):</label>
+                        <select id="ct-video-mode">
+                            <option value="">None (transcode)</option>
+                            <option value="RAW">RAW (no transcoding)</option>
+                        </select>
+                        
+                        <h3 class="text-lg font-semibold mt-4">Audio Output Options</h3>
+                        <label class="text-sm text-gray-400">Audio Profile:</label>
+                        <select id="ct-audio-profile">
+                            <option value="AUDIO_PROFILE_DEFAULT">Default (48kHz, mono, 64kbps)</option>
+                            <option value="AUDIO_PROFILE_SPEECH_STANDARD">Speech Standard (32kHz, mono, 18kbps)</option>
+                            <option value="AUDIO_PROFILE_MUSIC_STANDARD">Music Standard (48kHz, mono, 64kbps)</option>
+                            <option value="AUDIO_PROFILE_MUSIC_STANDARD_STEREO">Music Standard Stereo (48kHz, stereo, 80kbps)</option>
+                            <option value="AUDIO_PROFILE_MUSIC_HIGH_QUALITY">Music High Quality (48kHz, mono, 96kbps)</option>
+                            <option value="AUDIO_PROFILE_MUSIC_HIGH_QUALITY_STEREO">Music High Quality Stereo (48kHz, stereo, 128kbps)</option>
+                        </select>
+                        
+                        <h3 class="text-lg font-semibold mt-4 mb-2">Operations</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="createTranscoding()" class="modern-btn modern-btn-primary">Create Task</button>
+                            <button onclick="queryTranscoding()" class="modern-btn modern-btn-warning">Query Tasks</button>
+                            <button onclick="updateTranscoding()" class="modern-btn modern-btn-secondary">Update Task</button>
+                            <button onclick="destroyTranscoding()" class="modern-btn modern-btn-danger">Destroy Task</button>
+                        </div>
+                    </div>
+                    <pre id="ct-response" class="mt-4 min-h-[200px]"></pre>
+                </div>
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Cloud Transcoding ID Management</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-sm text-gray-400">Task ID (auto-filled when created, or enter existing):</label>
+                            <div class="flex gap-2">
+                                <input id="ct-task-id" type="text" placeholder="Task ID will appear here or enter existing ID" class="flex-1" />
+                                <button onclick="copyToClipboard('ct-task-id')" class="modern-btn modern-btn-secondary" title="Copy ID">Copy</button>
+                            </div>
+                        </div>
+                        <h3 class="text-lg font-semibold mt-4 mb-2">Transcoding Info</h3>
+                        <div id="ct-info" class="space-y-2">
+                            <p class="text-sm text-gray-400">Transcoding information will appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Popup -->
+    <div id="authPopup" class="hidden fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="modern-card w-full max-w-sm">
+            <div class="flex items-center gap-3 mb-4 pb-4 border-b border-slate-700/50">
+                <div class="icon-container">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <h2 class="text-xl font-bold gradient-text-primary">RESTful API Credentials</h2>
+            </div>
+            <p class="text-sm mb-4 text-slate-400">
+                Enter your Agora Customer ID and Secret for authentication.
+            </p>
+            <div class="space-y-4">
+                <input id="customerId" type="text" placeholder="Customer ID" />
+                <input id="customerSecret" type="password" placeholder="Customer Secret" />
+                <input id="appid" type="text" placeholder="App ID" />
+                <input id="appCertificate" type="password" placeholder="App Certificate (optional, for token generation)" />
+                <label>Region:</label>
+                <select id="region">
+                    <option value="na">North America (na)</option>
+                    <option value="eu">Europe (eu)</option>
+                    <option value="ap">Asia Pacific (ap)</option>
+                    <option value="cn">China Mainland (cn)</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-4 mt-6">
+                <button onclick="toggleAuthPopup()" class="modern-btn modern-btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
