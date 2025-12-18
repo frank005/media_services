@@ -3206,14 +3206,16 @@ async function generateToken(service) {
             // Host token generation
             channel = document.getElementById("host-channel").value;
             uidInput = document.getElementById("host-uid").value;
-            uid = uidInput ? parseInt(uidInput) : Math.floor(Math.random() * 1000000);
+            const parsedUid = (uidInput && uidInput.toString().trim() !== "") ? parseInt(uidInput) : NaN;
+            uid = !isNaN(parsedUid) ? parsedUid : 0;
             tokenFieldId = "host-token";
             role = RtcRole.PUBLISHER;
         } else if (service === "audience") {
             // Audience token generation
             channel = document.getElementById("audience-channel").value;
             uidInput = document.getElementById("audience-uid").value;
-            uid = uidInput ? parseInt(uidInput) : Math.floor(Math.random() * 1000000);
+            const parsedUid = (uidInput && uidInput.toString().trim() !== "") ? parseInt(uidInput) : NaN;
+            uid = !isNaN(parsedUid) ? parsedUid : 0;
             tokenFieldId = "audience-token";
             role = RtcRole.SUBSCRIBER;
         } else {
@@ -3221,13 +3223,15 @@ async function generateToken(service) {
             if (service === "ct-input") {
                 channel = document.getElementById("ct-input-channel").value;
                 uidInput = document.getElementById("ct-input-uid").value;
-                uid = uidInput ? parseInt(uidInput) : 0;
+                const parsedUid = (uidInput && uidInput.toString().trim() !== "") ? parseInt(uidInput) : NaN;
+                uid = !isNaN(parsedUid) ? parsedUid : 0;
                 tokenFieldId = "ct-input-token";
                 role = RtcRole.SUBSCRIBER;
             } else if (service === "ct-output") {
                 channel = document.getElementById("ct-output-channel").value || document.getElementById("ct-input-channel").value;
                 uidInput = document.getElementById("ct-output-uid").value;
-                uid = uidInput ? parseInt(uidInput) : 999;
+                const parsedUid = (uidInput && uidInput.toString().trim() !== "") ? parseInt(uidInput) : NaN;
+                uid = !isNaN(parsedUid) ? parsedUid : 0;
                 tokenFieldId = "ct-output-token";
                 role = RtcRole.PUBLISHER;
             } else {
@@ -3247,7 +3251,8 @@ async function generateToken(service) {
                     ct: "ct-uid"
                 };
                 uidInput = document.getElementById(uidMap[service]).value;
-                uid = uidInput ? parseInt(uidInput) : Math.floor(Math.random() * 1000000);
+                const parsedUid = (uidInput && uidInput.toString().trim() !== "") ? parseInt(uidInput) : NaN;
+                uid = !isNaN(parsedUid) ? parsedUid : 0;
 
                 // Determine role: publisher for Media Push host, subscriber for others
                 role = (service === "mps") ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;

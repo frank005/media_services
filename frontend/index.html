@@ -93,7 +93,7 @@
                 <div class="mt-4 space-y-3">
                     <div class="grid grid-cols-2 gap-2">
                         <input id="host-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="host-uid" type="text" placeholder="UID (optional)" />
+                        <input id="host-uid" type="number" placeholder="UID (optional)" />
                     </div>
                     <div class="flex gap-2">
                         <input id="host-token" type="text" placeholder="Token (optional)" class="flex-1" />
@@ -136,7 +136,7 @@
                 <div class="mt-4 space-y-3">
                     <div class="grid grid-cols-2 gap-2">
                         <input id="audience-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="audience-uid" type="text" placeholder="UID (optional)" />
+                        <input id="audience-uid" type="number" placeholder="UID (optional)" />
                     </div>
                     <div class="flex gap-2">
                         <input id="audience-token" type="text" placeholder="Token (optional)" class="flex-1" />
@@ -173,7 +173,7 @@
                     <div class="space-y-4">
                         <input id="mp-url" type="text" placeholder="Video URL (default AWS URL)" value="https://dev-generic.s3.us-east-2.amazonaws.com/TEST/0113e48fba4b84269590d88eecbb130c_TEST_0.mp4" />
                         <input id="mp-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="mp-uid" type="text" placeholder="UID" value="666" />
+                        <input id="mp-uid" type="number" placeholder="UID" value="666" />
                         <div class="flex gap-2">
                             <input id="mp-token" type="text" placeholder="Token (optional)" class="flex-1" />
                             <button onclick="generateToken('mp')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
@@ -263,7 +263,7 @@
                         
                         <input id="mps-name" type="text" placeholder="Converter Name (optional)" />
                         <input id="mps-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="mps-uid" type="text" placeholder="UID" value="444" />
+                        <input id="mps-uid" type="number" placeholder="UID" value="444" />
                         <div class="flex gap-2">
                             <input id="mps-token" type="text" placeholder="Token (optional)" class="flex-1" />
                             <button onclick="generateToken('mps')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
@@ -442,7 +442,7 @@
                             <div id="mg-obs-status" class="mt-2 text-sm"></div>
                         </div>
                         <input id="mg-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="mg-uid" type="text" placeholder="UID" value="333" />
+                        <input id="mg-uid" type="number" placeholder="UID" value="333" />
                         <div class="flex gap-2">
                             <input id="mg-token" type="text" placeholder="Token (optional)" class="flex-1" />
                             <button onclick="generateToken('mg')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
@@ -633,7 +633,7 @@
                         
                         <h3 class="text-lg font-semibold mt-4">Output Destination (RTC)</h3>
                         <input id="ct-output-channel" type="text" placeholder="Output Channel Name (defaults to input)" />
-                        <input id="ct-output-uid" type="text" placeholder="Output UID" value="999" />
+                        <input id="ct-output-uid" type="number" placeholder="Output UID" value="999" />
                         <div class="flex gap-2">
                             <input id="ct-output-token" type="text" placeholder="Output Token (defaults to input)" class="flex-1" />
                             <button onclick="generateToken('ct-output')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
