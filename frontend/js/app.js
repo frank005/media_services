@@ -32,8 +32,9 @@ let mediaPullUpdateSequence = 0;
 // Media Gateway streaming key
 let mediaGatewayStreamKey = null;
 
-// Cloud Transcoding task ID
+// Cloud Transcoding task ID and instance ID
 let transcodingTaskId = null;
+let transcodingInstanceId = null;
 
 // OBS WebSocket connection
 let obsWebSocket = null;
@@ -444,7 +445,7 @@ async function updateMediaPull() {
         if (responseText) {
             try {
                 const result = JSON.parse(responseText);
-                responseEl.textContent = JSON.stringify(result, null, 2);
+        responseEl.textContent = JSON.stringify(result, null, 2);
             } catch {
                 responseEl.textContent = responseText;
             }
@@ -603,8 +604,8 @@ async function startMediaPush() {
     if (mode === "raw") {
         // Non-transcoded mode (rawOptions)
         body.converter.rawOptions = {
-            rtcChannel: channel,
-            rtcStreamUid: uid ? parseInt(uid) : 0
+                rtcChannel: channel,
+                rtcStreamUid: uid ? parseInt(uid) : 0
         };
         if (token) body.converter.rawOptions.rtcToken = token;
     } else {
@@ -1785,6 +1786,210 @@ async function muteUnmuteStream() {
 // ============================================
 
 let transcodingBuilderToken = null;
+let audioInputCounter = 0;
+let videoInputCounter = 0;
+
+// Initialize with one audio and one video input on page load
+document.addEventListener('DOMContentLoaded', function() {
+    addAudioInput();
+    addVideoInput();
+});
+
+function addAudioInput() {
+    const container = document.getElementById('ct-audio-inputs-container');
+    const inputId = `audio-input-${audioInputCounter}`;
+    const currentCounter = audioInputCounter++;
+    
+    const inputDiv = document.createElement('div');
+    inputDiv.id = inputId;
+    inputDiv.className = 'border border-gray-700 rounded p-3 mb-2';
+    inputDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+            <label class="text-sm font-semibold">Audio Input ${currentCounter + 1}</label>
+            <button onclick="removeAudioInput('${inputId}')" class="modern-btn modern-btn-danger text-xs">Remove</button>
+        </div>
+        <select class="audio-input-type mb-2" onchange="toggleAudioInputType('${inputId}', this.value)">
+            <option value="rtc">RTC Stream</option>
+            <option value="cdn">CDN Stream</option>
+        </select>
+        <div class="audio-rtc-fields">
+            <input type="text" class="audio-channel" placeholder="RTC Channel" value="testChannel" />
+            <input type="number" class="audio-uid" placeholder="RTC UID" value="${1001 + currentCounter}" />
+            <input type="text" class="audio-token" placeholder="RTC Token (optional)" />
+        </div>
+        <div class="audio-cdn-fields" style="display: none;">
+            <input type="text" class="audio-stream-url" placeholder="CDN Stream URL" />
+            <input type="number" class="audio-volume" placeholder="Volume (0-200)" value="100" min="0" max="200" />
+            <input type="number" class="audio-repeat" placeholder="Repeat (-1=loop, 1=once)" value="1" />
+        </div>
+    `;
+    container.appendChild(inputDiv);
+}
+
+function removeAudioInput(inputId) {
+    document.getElementById(inputId).remove();
+}
+
+function toggleAudioInputType(inputId, type) {
+    const inputDiv = document.getElementById(inputId);
+    const rtcFields = inputDiv.querySelector('.audio-rtc-fields');
+    const cdnFields = inputDiv.querySelector('.audio-cdn-fields');
+    
+    if (type === 'rtc') {
+        rtcFields.style.display = 'block';
+        cdnFields.style.display = 'none';
+    } else {
+        rtcFields.style.display = 'none';
+        cdnFields.style.display = 'block';
+    }
+}
+
+function addVideoInput() {
+    const container = document.getElementById('ct-video-inputs-container');
+    const inputId = `video-input-${videoInputCounter}`;
+    const currentCounter = videoInputCounter++;
+    
+    const inputDiv = document.createElement('div');
+    inputDiv.id = inputId;
+    inputDiv.className = 'border border-gray-700 rounded p-3 mb-2';
+    inputDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+            <label class="text-sm font-semibold">Video Input ${currentCounter + 1}</label>
+            <button onclick="removeVideoInput('${inputId}')" class="modern-btn modern-btn-danger text-xs">Remove</button>
+        </div>
+        <select class="video-input-type mb-2" onchange="toggleVideoInputType('${inputId}', this.value)">
+            <option value="rtc">RTC Stream</option>
+            <option value="cdn">CDN Stream</option>
+        </select>
+        <div class="video-rtc-fields">
+            <input type="text" class="video-channel" placeholder="RTC Channel" value="testChannel" />
+            <input type="number" class="video-uid" placeholder="RTC UID" value="${1001 + currentCounter}" />
+            <input type="text" class="video-token" placeholder="RTC Token (optional)" />
+            <input type="text" class="video-placeholder-url" placeholder="Placeholder Image URL (optional)" />
+        </div>
+        <div class="video-cdn-fields" style="display: none;">
+            <input type="text" class="video-stream-url" placeholder="CDN Stream URL" />
+            <input type="number" class="video-repeat" placeholder="Repeat (-1=loop, 1=once)" value="1" />
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+            <input type="number" class="video-x" placeholder="X" value="0" min="0" max="3840" />
+            <input type="number" class="video-y" placeholder="Y" value="0" min="0" max="3840" />
+            <input type="number" class="video-width" placeholder="Width" value="640" min="120" max="3840" />
+            <input type="number" class="video-height" placeholder="Height" value="360" min="120" max="3840" />
+            <input type="number" class="video-z-order" placeholder="Z-Order" value="2" min="2" max="100" />
+        </div>
+    `;
+    container.appendChild(inputDiv);
+}
+
+function removeVideoInput(inputId) {
+    document.getElementById(inputId).remove();
+}
+
+function toggleVideoInputType(inputId, type) {
+    const inputDiv = document.getElementById(inputId);
+    const rtcFields = inputDiv.querySelector('.video-rtc-fields');
+    const cdnFields = inputDiv.querySelector('.video-cdn-fields');
+    
+    if (type === 'rtc') {
+        rtcFields.style.display = 'block';
+        cdnFields.style.display = 'none';
+    } else {
+        rtcFields.style.display = 'none';
+        cdnFields.style.display = 'block';
+    }
+}
+
+function collectAudioInputs() {
+    const container = document.getElementById('ct-audio-inputs-container');
+    const audioInputDivs = container.querySelectorAll('[id^="audio-input-"]');
+    const audioInputs = [];
+    
+    audioInputDivs.forEach(div => {
+        const type = div.querySelector('.audio-input-type').value;
+        
+        if (type === 'rtc') {
+            const channel = div.querySelector('.audio-channel').value;
+            const uid = parseInt(div.querySelector('.audio-uid').value);
+            const token = div.querySelector('.audio-token').value;
+            
+            // Validate: channel must exist, UID must be a valid number and not 0
+            if (channel && !isNaN(uid) && uid !== 0) {
+                const rtcInput = {
+                    rtc: {
+                        rtcChannel: channel,
+                        rtcUid: uid
+                    }
+                };
+                if (token) rtcInput.rtc.rtcToken = token;
+                audioInputs.push(rtcInput);
+            }
+        } else {
+            const streamUrl = div.querySelector('.audio-stream-url').value;
+            const volume = parseInt(div.querySelector('.audio-volume').value) || 100;
+            const repeat = parseInt(div.querySelector('.audio-repeat').value) || 1;
+            
+            if (streamUrl) {
+                audioInputs.push({
+                    streamUrl: streamUrl,
+                    volume: volume,
+                    repeat: repeat
+                });
+            }
+        }
+    });
+    
+    return audioInputs;
+}
+
+function collectVideoInputs() {
+    const container = document.getElementById('ct-video-inputs-container');
+    const videoInputDivs = container.querySelectorAll('[id^="video-input-"]');
+    const videoInputs = [];
+    
+    videoInputDivs.forEach(div => {
+        const type = div.querySelector('.video-input-type').value;
+        const x = parseInt(div.querySelector('.video-x').value) || 0;
+        const y = parseInt(div.querySelector('.video-y').value) || 0;
+        const width = parseInt(div.querySelector('.video-width').value) || 640;
+        const height = parseInt(div.querySelector('.video-height').value) || 360;
+        const zOrder = parseInt(div.querySelector('.video-z-order').value) || 2;
+        
+        if (type === 'rtc') {
+            const channel = div.querySelector('.video-channel').value;
+            const uid = parseInt(div.querySelector('.video-uid').value);
+            const token = div.querySelector('.video-token').value;
+            const placeholderUrl = div.querySelector('.video-placeholder-url').value;
+            
+            // Validate: channel must exist, UID must be a valid number and not 0
+            if (channel && !isNaN(uid) && uid !== 0) {
+                const videoInput = {
+                    rtc: {
+                        rtcChannel: channel,
+                        rtcUid: uid
+                    },
+                    region: { x, y, width, height, zOrder }
+                };
+                if (token) videoInput.rtc.rtcToken = token;
+                if (placeholderUrl) videoInput.placeholderImageUrl = placeholderUrl;
+                videoInputs.push(videoInput);
+            }
+        } else {
+            const streamUrl = div.querySelector('.video-stream-url').value;
+            const repeat = parseInt(div.querySelector('.video-repeat').value) || 1;
+            
+            if (streamUrl) {
+                videoInputs.push({
+                    streamUrl: streamUrl,
+                    repeat: repeat,
+                    region: { x, y, width, height, zOrder }
+                });
+            }
+        }
+    });
+    
+    return videoInputs;
+}
 
 async function acquireTranscoding() {
     try {
@@ -1794,18 +1999,17 @@ async function acquireTranscoding() {
         return;
     }
     
-    // Get instanceId (optional, but recommended)
-    const instanceId = document.getElementById("ct-instance-id").value || `instance_${Date.now()}`;
+    // Collect audio and video inputs
+    const audioInputs = collectAudioInputs();
+    const videoInputs = collectVideoInputs();
     
-    // Build the same config structure as Create (but without outputs for Acquire)
-    const inputChannel = document.getElementById("ct-input-channel").value;
-    const inputUid = document.getElementById("ct-input-uid").value || "0";
-    const inputToken = document.getElementById("ct-input-token").value;
-    
-    if (!inputChannel) {
-        showPopup("Input Channel is required for Acquire");
+    if (audioInputs.length === 0 && videoInputs.length === 0) {
+        showPopup("At least one audio or video input is required");
         return;
     }
+    
+    // Get instanceId - use saved one from acquire, or from input, or generate new
+    const instanceId = transcodingInstanceId || document.getElementById("ct-instance-id").value || `instance_${Date.now()}`;
     
     const streamProcessMode = document.getElementById("ct-stream-mode").value || null;
     const idleTimeout = parseInt(document.getElementById("ct-idle-timeout").value) || 300;
@@ -1814,12 +2018,11 @@ async function acquireTranscoding() {
     const canvasColor = document.getElementById("ct-canvas-color").value || "0";
     const canvasBgImage = document.getElementById("ct-canvas-bg-image").value || null;
     const canvasFillMode = document.getElementById("ct-canvas-fill-mode").value || "FILL";
-    const placeholderImageUrl = document.getElementById("ct-placeholder-image").value || null;
     
     const responseEl = document.getElementById("ct-response");
     responseEl.textContent = "Acquiring builder token...";
     
-    // Build request body - same structure as Create but for Acquire
+    // Build request body - Acquire uses camelCase instanceId
     const body = {
         instanceId: instanceId,
         services: {
@@ -1838,36 +2041,15 @@ async function acquireTranscoding() {
         body.services.cloudTranscoder.config.transcoder.streamProcessMode = streamProcessMode;
     }
     
-    // Audio inputs
-    const audioRtc = {
-        rtcChannel: inputChannel,
-        rtcUid: parseInt(inputUid) || 0
-    };
-    if (inputToken) audioRtc.rtcToken = inputToken;
-    body.services.cloudTranscoder.config.transcoder.audioInputs = [{
-        rtc: audioRtc
-    }];
-    
-    // Video inputs
-    const videoRtc = {
-        rtcChannel: inputChannel,
-        rtcUid: parseInt(inputUid) || 0
-    };
-    if (inputToken) videoRtc.rtcToken = inputToken;
-    const videoInput = {
-        rtc: videoRtc,
-        region: {
-            x: 0,
-            y: 0,
-            width: canvasWidth,
-            height: canvasHeight,
-            zOrder: 2
-        }
-    };
-    if (placeholderImageUrl) {
-        videoInput.placeholderImageUrl = placeholderImageUrl;
+    // Add audio inputs if any
+    if (audioInputs.length > 0) {
+        body.services.cloudTranscoder.config.transcoder.audioInputs = audioInputs;
     }
-    body.services.cloudTranscoder.config.transcoder.videoInputs = [videoInput];
+    
+    // Add video inputs if any
+    if (videoInputs.length > 0) {
+        body.services.cloudTranscoder.config.transcoder.videoInputs = videoInputs;
+    }
     
     // Canvas
     body.services.cloudTranscoder.config.transcoder.canvas = {
@@ -1880,8 +2062,45 @@ async function acquireTranscoding() {
         body.services.cloudTranscoder.config.transcoder.canvas.fillMode = canvasFillMode;
     }
     
-    // Watermarks (empty for now)
-    body.services.cloudTranscoder.config.transcoder.watermarks = [];
+    // Outputs - MUST be included for hash to match
+    const outputChannel = document.getElementById("ct-output-channel").value;
+    const outputUid = document.getElementById("ct-output-uid").value || "999";
+    const outputToken = document.getElementById("ct-output-token").value;
+    const videoWidth = parseInt(document.getElementById("ct-video-width").value) || 1280;
+    const videoHeight = parseInt(document.getElementById("ct-video-height").value) || 720;
+    const videoBitrate = parseInt(document.getElementById("ct-video-bitrate").value) || 2200;
+    const videoFps = parseInt(document.getElementById("ct-video-fps").value) || 30;
+    const videoCodec = document.getElementById("ct-video-codec").value || "H264";
+    const videoMode = document.getElementById("ct-video-mode").value || null;
+    const audioProfile = document.getElementById("ct-audio-profile").value || "AUDIO_PROFILE_DEFAULT";
+    
+    if (!outputChannel) {
+        showPopup("Output Channel is required");
+        return;
+    }
+    
+    const outputRtc = {
+        rtcChannel: outputChannel,
+        rtcUid: parseInt(outputUid) || 999
+    };
+    if (outputToken) outputRtc.rtcToken = outputToken;
+    const output = {
+        rtc: outputRtc,
+        audioOption: {
+            profileType: audioProfile
+        },
+        videoOption: {
+            width: videoWidth,
+            height: videoHeight,
+            bitrate: videoBitrate,
+            codec: videoCodec,
+            fps: videoFps
+        }
+    };
+    if (videoMode) {
+        output.videoOption.mode = videoMode;
+    }
+    body.services.cloudTranscoder.config.transcoder.outputs = [output];
     
     try {
         const response = await proxyFetch(`https://api.sd-rtn.com/v1/projects/${appid}/rtsc/cloud-transcoder/builderTokens`, {
@@ -1903,7 +2122,9 @@ async function acquireTranscoding() {
         
         if (result.tokenName) {
             transcodingBuilderToken = result.tokenName;
+            transcodingInstanceId = instanceId; // Save instanceId for reuse
             document.getElementById("ct-builder-token").value = result.tokenName;
+            document.getElementById("ct-instance-id").value = instanceId; // Update UI with the instanceId used
             showPopup("Builder token acquired successfully! Use it within 2 seconds to create a task.");
         } else {
             showPopup(`Error: ${result.message || "Failed to acquire builder token"}`);
@@ -1930,18 +2151,20 @@ async function createTranscoding() {
         return;
     }
     
-    // Get basic inputs
-    const inputChannel = document.getElementById("ct-input-channel").value;
-    const inputUid = document.getElementById("ct-input-uid").value || "0";
-    const inputToken = document.getElementById("ct-input-token").value;
-    const outputChannel = document.getElementById("ct-output-channel").value || inputChannel;
-    const outputUid = document.getElementById("ct-output-uid").value || "999";
-    const outputToken = document.getElementById("ct-output-token").value || inputToken;
+    // Collect audio and video inputs
+    const audioInputs = collectAudioInputs();
+    const videoInputs = collectVideoInputs();
     
-    if (!inputChannel) {
-        showPopup("Input Channel Name is required");
+    if (audioInputs.length === 0 && videoInputs.length === 0) {
+        showPopup("At least one audio or video input is required");
         return;
     }
+    
+    // Get output settings
+    const outputChannel = document.getElementById("ct-output-channel").value;
+    const outputUid = document.getElementById("ct-output-uid").value || "999";
+    const outputToken = document.getElementById("ct-output-token").value;
+    
     if (!outputChannel) {
         showPopup("Output Channel Name is required");
         return;
@@ -1971,13 +2194,11 @@ async function createTranscoding() {
     // Get audio option settings
     const audioProfile = document.getElementById("ct-audio-profile").value || "AUDIO_PROFILE_DEFAULT";
     
-    // Get placeholder image
-    const placeholderImageUrl = document.getElementById("ct-placeholder-image").value || null;
-    
     const responseEl = document.getElementById("ct-response");
     responseEl.textContent = "Creating transcoding task...";
     
     // Build the full request body according to API spec
+    // Note: Create endpoint does NOT include instance_id in the body
     const body = {
         services: {
             cloudTranscoder: {
@@ -1996,36 +2217,15 @@ async function createTranscoding() {
         body.services.cloudTranscoder.config.transcoder.streamProcessMode = streamProcessMode;
     }
     
-    // Build audio inputs
-    const audioRtc = {
-        rtcChannel: inputChannel,
-        rtcUid: parseInt(inputUid) || 0
-    };
-    if (inputToken) audioRtc.rtcToken = inputToken;
-    body.services.cloudTranscoder.config.transcoder.audioInputs = [{
-        rtc: audioRtc
-    }];
-    
-    // Build video inputs
-    const videoRtc = {
-        rtcChannel: inputChannel,
-        rtcUid: parseInt(inputUid) || 0
-    };
-    if (inputToken) videoRtc.rtcToken = inputToken;
-    const videoInput = {
-        rtc: videoRtc,
-        region: {
-            x: 0,
-            y: 0,
-            width: canvasWidth,
-            height: canvasHeight,
-            zOrder: 2
-        }
-    };
-    if (placeholderImageUrl) {
-        videoInput.placeholderImageUrl = placeholderImageUrl;
+    // Add audio inputs if any
+    if (audioInputs.length > 0) {
+        body.services.cloudTranscoder.config.transcoder.audioInputs = audioInputs;
     }
-    body.services.cloudTranscoder.config.transcoder.videoInputs = [videoInput];
+    
+    // Add video inputs if any
+    if (videoInputs.length > 0) {
+        body.services.cloudTranscoder.config.transcoder.videoInputs = videoInputs;
+    }
     
     // Build canvas
     body.services.cloudTranscoder.config.transcoder.canvas = {
@@ -2038,15 +2238,13 @@ async function createTranscoding() {
         body.services.cloudTranscoder.config.transcoder.canvas.fillMode = canvasFillMode;
     }
     
-    // Build watermarks (empty array for now, can be added via UI later)
-    body.services.cloudTranscoder.config.transcoder.watermarks = [];
-    
-    // Build outputs
+    // Build outputs - rtcToken is optional (only include if provided)
     const outputRtc = {
         rtcChannel: outputChannel,
         rtcUid: parseInt(outputUid) || 999
     };
     if (outputToken) outputRtc.rtcToken = outputToken;
+    
     const output = {
         rtc: outputRtc,
         audioOption: {
@@ -2175,16 +2373,22 @@ async function updateTranscoding() {
     const sequenceId = transcodingSequenceId;
     const updateMask = "services.cloudTranscoder.config";
     
-    // Get current values and rebuild the full config (Update requires all fields)
-    const inputChannel = document.getElementById("ct-input-channel").value;
-    const inputUid = document.getElementById("ct-input-uid").value || "0";
-    const inputToken = document.getElementById("ct-input-token").value;
-    const outputChannel = document.getElementById("ct-output-channel").value || inputChannel;
-    const outputUid = document.getElementById("ct-output-uid").value || "999";
-    const outputToken = document.getElementById("ct-output-token").value || inputToken;
+    // Collect audio and video inputs
+    const audioInputs = collectAudioInputs();
+    const videoInputs = collectVideoInputs();
     
-    if (!inputChannel || !outputChannel) {
-        showPopup("Input and Output Channel are required for Update");
+    if (audioInputs.length === 0 && videoInputs.length === 0) {
+        showPopup("At least one audio or video input is required");
+        return;
+    }
+    
+    // Get output settings
+    const outputChannel = document.getElementById("ct-output-channel").value;
+    const outputUid = document.getElementById("ct-output-uid").value || "999";
+    const outputToken = document.getElementById("ct-output-token").value;
+    
+    if (!outputChannel) {
+        showPopup("Output Channel is required for Update");
         return;
     }
     
@@ -2195,7 +2399,6 @@ async function updateTranscoding() {
     const canvasColor = document.getElementById("ct-canvas-color").value || "0";
     const canvasBgImage = document.getElementById("ct-canvas-bg-image").value || null;
     const canvasFillMode = document.getElementById("ct-canvas-fill-mode").value || "FILL";
-    const placeholderImageUrl = document.getElementById("ct-placeholder-image").value || null;
     const videoWidth = parseInt(document.getElementById("ct-video-width").value) || 1280;
     const videoHeight = parseInt(document.getElementById("ct-video-height").value) || 720;
     const videoBitrate = parseInt(document.getElementById("ct-video-bitrate").value) || 2200;
@@ -2208,6 +2411,7 @@ async function updateTranscoding() {
     responseEl.textContent = "Updating transcoding task...";
     
     // Build full config (Update requires all fields from Create)
+    // Note: Update endpoint does NOT include instance_id in the body (same as Create)
     const body = {
         services: {
             cloudTranscoder: {
@@ -2225,34 +2429,15 @@ async function updateTranscoding() {
         body.services.cloudTranscoder.config.transcoder.streamProcessMode = streamProcessMode;
     }
     
-    const audioRtc = {
-        rtcChannel: inputChannel,
-        rtcUid: parseInt(inputUid) || 0
-    };
-    if (inputToken) audioRtc.rtcToken = inputToken;
-    body.services.cloudTranscoder.config.transcoder.audioInputs = [{
-        rtc: audioRtc
-    }];
-    
-    const videoRtc = {
-        rtcChannel: inputChannel,
-        rtcUid: parseInt(inputUid) || 0
-    };
-    if (inputToken) videoRtc.rtcToken = inputToken;
-    const videoInput = {
-        rtc: videoRtc,
-        region: {
-            x: 0,
-            y: 0,
-            width: canvasWidth,
-            height: canvasHeight,
-            zOrder: 2
-        }
-    };
-    if (placeholderImageUrl) {
-        videoInput.placeholderImageUrl = placeholderImageUrl;
+    // Add audio inputs if any
+    if (audioInputs.length > 0) {
+        body.services.cloudTranscoder.config.transcoder.audioInputs = audioInputs;
     }
-    body.services.cloudTranscoder.config.transcoder.videoInputs = [videoInput];
+    
+    // Add video inputs if any
+    if (videoInputs.length > 0) {
+        body.services.cloudTranscoder.config.transcoder.videoInputs = videoInputs;
+    }
     
     body.services.cloudTranscoder.config.transcoder.canvas = {
         width: canvasWidth,
@@ -2264,13 +2449,13 @@ async function updateTranscoding() {
         body.services.cloudTranscoder.config.transcoder.canvas.fillMode = canvasFillMode;
     }
     
-    body.services.cloudTranscoder.config.transcoder.watermarks = [];
-    
+    // Build outputs - rtcToken is optional (only include if provided)
     const outputRtc = {
         rtcChannel: outputChannel,
         rtcUid: parseInt(outputUid) || 999
     };
     if (outputToken) outputRtc.rtcToken = outputToken;
+    
     const output = {
         rtc: outputRtc,
         audioOption: {
@@ -2359,7 +2544,7 @@ async function destroyTranscoding() {
         if (responseText && responseText.trim() !== "") {
             try {
                 result = JSON.parse(responseText);
-                responseEl.textContent = JSON.stringify(result, null, 2);
+        responseEl.textContent = JSON.stringify(result, null, 2);
             } catch (e) {
                 responseEl.textContent = responseText;
             }
@@ -2378,14 +2563,139 @@ async function destroyTranscoding() {
     }
 }
 
-async function createTemplate() {
-    showPopup("Template functionality is not available via REST API. Use the web console instead.");
-    document.getElementById("ct-response").textContent = "Info: Template management is done via the Agora Console, not REST API.";
+// Cloud Transcoding Template Management
+async function createOrUpdateCTTemplate() {
+    try {
+        validateCredentials();
+    } catch (error) {
+        showPopup(error.message);
+        return;
+    }
+    
+    const templateId = document.getElementById("ct-template-id").value;
+    const enabled = document.getElementById("ct-template-enabled").checked;
+    const width = parseInt(document.getElementById("ct-template-width").value) || 1280;
+    const height = parseInt(document.getElementById("ct-template-height").value) || 720;
+    const fps = parseInt(document.getElementById("ct-template-fps").value) || 30;
+    
+    if (!templateId) {
+        showPopup("Template ID is required");
+        return;
+    }
+    
+    // Validate max values
+    if (width > 1920) {
+        showPopup("Width cannot exceed 1920px");
+        return;
+    }
+    if (height > 1920) {
+        showPopup("Height cannot exceed 1920px");
+        return;
+    }
+    if (fps > 60) {
+        showPopup("FPS cannot exceed 60");
+        return;
+    }
+    
+    const responseEl = document.getElementById("ct-template-response");
+    responseEl.textContent = "Creating/updating template...";
+    
+    const body = {
+        enabled: enabled,
+        video: {
+            width: width,
+            height: height,
+            fps: fps
+        }
+    };
+    
+    try {
+        const response = await proxyFetch(`https://api.sd-rtn.com/v1/projects/${appid}/rtls/abr/config/codecs/${encodeURIComponent(templateId)}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": getAuthHeaders()
+            },
+            body: JSON.stringify(body)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        responseEl.textContent = JSON.stringify(result, null, 2);
+        showPopup(`Template "${templateId}" ${result.status === 'success' ? 'saved successfully' : 'operation completed'}!`);
+        
+        // Auto-refresh the templates list
+        queryCTTemplates();
+    } catch (error) {
+        responseEl.textContent = `Error: ${error.message}`;
+        showPopup(`Error: ${error.message}`);
+    }
 }
 
-async function queryTemplates() {
-    showPopup("Template functionality is not available via REST API. Use the web console instead.");
-    document.getElementById("ct-response").textContent = "Info: Template management is done via the Agora Console, not REST API.";
+async function queryCTTemplates() {
+    try {
+        validateCredentials();
+    } catch (error) {
+        showPopup(error.message);
+        return;
+    }
+    
+    const responseEl = document.getElementById("ct-template-response");
+    const listEl = document.getElementById("ct-templates-list");
+    responseEl.textContent = "Querying templates...";
+    
+    try {
+        const response = await proxyFetch(`https://api.sd-rtn.com/v1/projects/${appid}/rtls/abr/config/codecs`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": getAuthHeaders()
+            }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        responseEl.textContent = JSON.stringify(result, null, 2);
+        
+        // Display templates in a nice format
+        if (result.data && result.data.codecs && result.data.codecs.length > 0) {
+            listEl.innerHTML = result.data.codecs.map(codec => `
+                <div class="border border-gray-700 rounded p-3 mb-2">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-semibold">${codec.id}</span>
+                        <span class="text-sm ${codec.enabled ? 'text-green-400' : 'text-red-400'}">
+                            ${codec.enabled ? '✓ Enabled' : '✗ Disabled'}
+                        </span>
+                    </div>
+                    <div class="text-sm text-gray-400">
+                        <p>Resolution: ${codec.video.width}x${codec.video.height}</p>
+                        <p>FPS: ${codec.video.fps}</p>
+                    </div>
+                </div>
+            `).join('');
+            
+            const multibitrateStatus = result.data.enabled ? 
+                '<p class="text-green-400 text-sm mb-2">Multi-bitrate function: Enabled</p>' : 
+                '<p class="text-red-400 text-sm mb-2">Multi-bitrate function: Disabled</p>';
+            listEl.innerHTML = multibitrateStatus + listEl.innerHTML;
+        } else {
+            listEl.innerHTML = '<p class="text-sm text-gray-400">No templates found</p>';
+        }
+        
+        showPopup("Templates retrieved successfully!");
+    } catch (error) {
+        responseEl.textContent = `Error: ${error.message}`;
+        listEl.innerHTML = '<p class="text-sm text-red-400">Error loading templates</p>';
+        showPopup(`Error: ${error.message}`);
+    }
 }
 
 // ============================================
@@ -2749,10 +3059,10 @@ async function joinChannelAsAudience() {
                     
                     // Switch to the new video user (most recent)
                     currentVideoUser = user;
-                    const remoteVideoTrack = user.videoTrack;
-                    if (remoteVideoTrack) {
-                        videoPlayerEl.innerHTML = "";
-                        remoteVideoTrack.play(videoPlayerEl);
+                const remoteVideoTrack = user.videoTrack;
+                if (remoteVideoTrack) {
+                    videoPlayerEl.innerHTML = "";
+                    remoteVideoTrack.play(videoPlayerEl);
                         console.log(`Auto mode: Now displaying video from user ${user.uid}`);
                     }
                 } else {
@@ -2791,7 +3101,7 @@ async function joinChannelAsAudience() {
                         }
                     } else {
                         // No other publishers available
-                        videoPlayerEl.innerHTML = '<div class="video-player-placeholder"><div>No video stream</div></div>';
+            videoPlayerEl.innerHTML = '<div class="video-player-placeholder"><div>No video stream</div></div>';
                         currentVideoUser = null;
                         previousVideoUser = null;
                     }
@@ -3026,6 +3336,297 @@ window.addEventListener("load", () => {
         });
         // Initially hide audio settings since it's unchecked by default
         audioSettings.style.display = "none";
+    }
+});
+
+// ============================================
+// COPY JSON FUNCTIONS AND MODAL
+// ============================================
+
+function showJSONModal(title, jsonObject) {
+    const jsonModal = document.getElementById('jsonDisplayModal');
+    const jsonModalTitle = document.getElementById('jsonModalTitle');
+    const jsonModalContent = document.getElementById('jsonModalContent');
+    
+    if (jsonModal && jsonModalTitle && jsonModalContent) {
+        jsonModalTitle.textContent = title;
+        jsonModalContent.textContent = JSON.stringify(jsonObject, null, 2);
+        jsonModal.classList.remove('hidden');
+    }
+}
+
+function copyResponseToClipboard(responseId) {
+    const responseEl = document.getElementById(responseId);
+    if (responseEl && responseEl.textContent) {
+        navigator.clipboard.writeText(responseEl.textContent);
+        showPopup("Response copied to clipboard!");
+    }
+}
+
+// Cloud Transcoding Copy JSON Functions
+function copyCTCreateJSON() {
+    try {
+        const audioInputs = collectAudioInputs();
+        const videoInputs = collectVideoInputs();
+        const outputChannel = document.getElementById("ct-output-channel").value;
+        const outputUid = document.getElementById("ct-output-uid").value || "999";
+        const outputToken = document.getElementById("ct-output-token").value;
+        const streamProcessMode = document.getElementById("ct-stream-mode").value || "mix";
+        const idleTimeout = parseInt(document.getElementById("ct-idle-timeout").value) || 300;
+        const canvasWidth = parseInt(document.getElementById("ct-canvas-width").value) || 1280;
+        const canvasHeight = parseInt(document.getElementById("ct-canvas-height").value) || 720;
+        const canvasColor = document.getElementById("ct-canvas-color").value || "0";
+        const canvasBgImage = document.getElementById("ct-canvas-bg-image").value || null;
+        const canvasFillMode = document.getElementById("ct-canvas-fill-mode").value || "FILL";
+        const videoWidth = parseInt(document.getElementById("ct-video-width").value) || 1280;
+        const videoHeight = parseInt(document.getElementById("ct-video-height").value) || 720;
+        const videoBitrate = parseInt(document.getElementById("ct-video-bitrate").value) || 2200;
+        const videoFps = parseInt(document.getElementById("ct-video-fps").value) || 30;
+        const videoCodec = document.getElementById("ct-video-codec").value || "H264";
+        const videoMode = document.getElementById("ct-video-mode").value || null;
+        const audioProfile = document.getElementById("ct-audio-profile").value || "AUDIO_PROFILE_DEFAULT";
+        
+        const body = {
+            services: {
+                cloudTranscoder: {
+                    serviceType: "cloudTranscoderV2",
+                    config: {
+                        transcoder: {
+                            idleTimeout: idleTimeout
+                        }
+                    }
+                }
+            }
+        };
+        
+        if (streamProcessMode !== "mix") {
+            body.services.cloudTranscoder.config.transcoder.streamProcessMode = streamProcessMode;
+        }
+        
+        if (audioInputs.length > 0) {
+            body.services.cloudTranscoder.config.transcoder.audioInputs = audioInputs;
+        }
+        
+        if (videoInputs.length > 0) {
+            body.services.cloudTranscoder.config.transcoder.videoInputs = videoInputs;
+        }
+        
+        body.services.cloudTranscoder.config.transcoder.canvas = {
+            width: canvasWidth,
+            height: canvasHeight,
+            color: parseInt(canvasColor) || 0
+        };
+        if (canvasBgImage) {
+            body.services.cloudTranscoder.config.transcoder.canvas.backgroundImage = canvasBgImage;
+            body.services.cloudTranscoder.config.transcoder.canvas.fillMode = canvasFillMode;
+        }
+        
+        const outputRtc = {
+            rtcChannel: outputChannel,
+            rtcUid: parseInt(outputUid) || 999
+        };
+        if (outputToken) outputRtc.rtcToken = outputToken;
+        
+        const output = {
+            rtc: outputRtc,
+            audioOption: { profileType: audioProfile },
+            videoOption: {
+                width: videoWidth,
+                height: videoHeight,
+                bitrate: videoBitrate,
+                codec: videoCodec,
+                fps: videoFps
+            }
+        };
+        if (videoMode) output.videoOption.mode = videoMode;
+        body.services.cloudTranscoder.config.transcoder.outputs = [output];
+        
+        showJSONModal('Cloud Transcoding Create Task JSON', body);
+    } catch (error) {
+        showPopup(`Error showing JSON: ${error.message}`);
+    }
+}
+
+function copyCTUpdateJSON() {
+    // Same as create for now (update requires full config)
+    copyCTCreateJSON();
+}
+
+// Media Pull Copy JSON Functions  
+function copyMPStartJSON() {
+    try {
+        const player = {
+            streamUrl: document.getElementById("mp-stream-url").value,
+            channelName: document.getElementById("mp-channel").value,
+            uid: parseInt(document.getElementById("mp-uid").value) || 666,
+            idleTimeout: parseInt(document.getElementById("mp-idle-timeout").value) || 300,
+            audioOptions: {
+                volume: parseInt(document.getElementById("mp-volume").value) || 100
+            }
+        };
+        
+        const token = document.getElementById("mp-token").value;
+        if (token) player.token = token;
+        
+        const body = { player };
+        showJSONModal('Media Pull Start JSON', body);
+    } catch (error) {
+        showPopup(`Error showing JSON: ${error.message}`);
+    }
+}
+
+function copyMPUpdateJSON() {
+    try {
+        const player = {
+            streamUrl: document.getElementById("mp-stream-url").value,
+            audioOptions: {
+                volume: parseInt(document.getElementById("mp-volume").value) || 100
+            },
+            isPause: document.getElementById("mp-is-pause").checked,
+            seekPosition: parseInt(document.getElementById("mp-seek-position").value) || 0
+        };
+        
+        const body = { player };
+        showJSONModal('Media Pull Update JSON', body);
+    } catch (error) {
+        showPopup(`Error showing JSON: ${error.message}`);
+    }
+}
+
+// Media Push Copy JSON Functions
+function copyMPushStartJSON() {
+    try {
+        // This would need to collect all the Media Push form data
+        // For now, show a message
+        showPopup("Media Push Start JSON - implementation needed based on form structure");
+    } catch (error) {
+        showPopup(`Error showing JSON: ${error.message}`);
+    }
+}
+
+function copyMPushUpdateJSON() {
+    try {
+        showPopup("Media Push Update JSON - implementation needed based on form structure");
+    } catch (error) {
+        showPopup(`Error showing JSON: ${error.message}`);
+    }
+}
+
+// Media Gateway Copy JSON Functions
+function copyMGCreateKeyJSON() {
+    try {
+        const channel = document.getElementById("mg-channel").value;
+        const uid = parseInt(document.getElementById("mg-uid").value) || 333;
+        const token = document.getElementById("mg-token").value;
+        const expiresAfter = parseInt(document.getElementById("mg-expires-after").value) || 0;
+        const templateId = document.getElementById("mg-template-id-create").value;
+        
+        const body = {
+            settings: {
+                channel: channel,
+                uid: uid
+            },
+            expiresAfter: expiresAfter
+        };
+        
+        if (token) body.settings.token = token;
+        if (templateId) body.templateId = templateId;
+        
+        showJSONModal('Media Gateway Create Stream Key JSON', body);
+    } catch (error) {
+        showPopup(`Error showing JSON: ${error.message}`);
+    }
+}
+
+function copyMGCreateTemplateJSON() {
+    try {
+        const templateId = document.getElementById("mg-template-id").value;
+        
+        const body = {};
+        
+        // Video transcoding
+        const videoEnabled = document.getElementById("mg-tmpl-video-enabled").checked;
+        if (videoEnabled) {
+            body.video = {
+                codec: document.getElementById("mg-tmpl-video-codec").value || "h264",
+                width: parseInt(document.getElementById("mg-tmpl-video-width").value) || 1280,
+                height: parseInt(document.getElementById("mg-tmpl-video-height").value) || 720,
+                framerate: parseInt(document.getElementById("mg-tmpl-video-framerate").value) || 30,
+                bitrate: parseInt(document.getElementById("mg-tmpl-video-bitrate").value) || 2000,
+                gop: parseInt(document.getElementById("mg-tmpl-video-gop").value) || 60
+            };
+        }
+        
+        // Audio transcoding
+        const audioEnabled = document.getElementById("mg-tmpl-audio-enabled").checked;
+        if (audioEnabled) {
+            body.audio = {
+                codec: document.getElementById("mg-tmpl-audio-codec").value || "opus",
+                sampleRate: parseInt(document.getElementById("mg-tmpl-audio-sample-rate").value) || 48000,
+                channels: parseInt(document.getElementById("mg-tmpl-audio-channels").value) || 2,
+                bitrate: parseInt(document.getElementById("mg-tmpl-audio-bitrate").value) || 128
+            };
+        }
+        
+        // Jitter buffer
+        const jitterEnabled = document.getElementById("mg-tmpl-jitter-enabled").checked;
+        if (jitterEnabled) {
+            body.jitterBuffer = {
+                minDelay: parseInt(document.getElementById("mg-tmpl-jitter-min").value) || 0,
+                maxDelay: parseInt(document.getElementById("mg-tmpl-jitter-max").value) || 800
+            };
+        }
+        
+        showJSONModal('Media Gateway Create Template JSON', body);
+    } catch (error) {
+        showPopup(`Error showing JSON: ${error.message}`);
+    }
+}
+
+function copyMGUpdateTemplateJSON() {
+    // Same as create for templates
+    copyMGCreateTemplateJSON();
+}
+
+// JSON Modal event handlers
+document.addEventListener('DOMContentLoaded', function() {
+    const jsonModal = document.getElementById('jsonDisplayModal');
+    const closeJsonModal = document.getElementById('closeJsonModal');
+    const closeJsonModalBtn = document.getElementById('closeJsonModalBtn');
+    const copyJsonFromModal = document.getElementById('copyJsonFromModal');
+    
+    // Close modal when clicking the X button
+    if (closeJsonModal) {
+        closeJsonModal.addEventListener('click', function() {
+            jsonModal.classList.add('hidden');
+        });
+    }
+    
+    // Close modal when clicking the Close button
+    if (closeJsonModalBtn) {
+        closeJsonModalBtn.addEventListener('click', function() {
+            jsonModal.classList.add('hidden');
+        });
+    }
+    
+    // Copy JSON from modal
+    if (copyJsonFromModal) {
+        copyJsonFromModal.addEventListener('click', function() {
+            const jsonContent = document.getElementById('jsonModalContent');
+            if (jsonContent) {
+                navigator.clipboard.writeText(jsonContent.textContent);
+                showPopup("JSON copied to clipboard!");
+            }
+        });
+    }
+    
+    // Close modal when clicking outside
+    if (jsonModal) {
+        jsonModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+            }
+        });
     }
 });
 

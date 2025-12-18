@@ -179,11 +179,26 @@
                             <button onclick="generateToken('mp')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
-                            <button onclick="startMediaPull()" class="modern-btn modern-btn-success">Start Media Pull</button>
+                            <div class="flex gap-2">
+                                <button onclick="startMediaPull()" class="modern-btn modern-btn-success flex-1">Start Media Pull</button>
+                                <button onclick="copyMPStartJSON()" class="modern-btn modern-btn-success modern-btn-icon" title="Copy Start JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <button onclick="listMediaPulls()" class="modern-btn modern-btn-primary">List Media Pulls</button>
-                            <button onclick="updateMediaPull()" class="modern-btn modern-btn-warning">Update Media Pull</button>
+                            <div class="flex gap-2">
+                                <button onclick="updateMediaPull()" class="modern-btn modern-btn-warning flex-1">Update Media Pull</button>
+                                <button onclick="copyMPUpdateJSON()" class="modern-btn modern-btn-warning modern-btn-icon" title="Copy Update JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <button onclick="deleteMediaPull()" class="modern-btn modern-btn-danger">Delete Media Pull</button>
                         </div>
+                        <div id="mp-copy-msg" class="text-green-400 text-sm hidden mt-2">Copied to clipboard!</div>
                         <div class="border-t border-gray-700 pt-4 mt-4">
                             <h3 class="text-sm font-semibold text-gray-400 mb-3">Update Options</h3>
                             <div class="space-y-3">
@@ -202,7 +217,17 @@
                             </div>
                         </div>
                     </div>
-                    <pre id="mp-response" class="mt-4 min-h-[200px]"></pre>
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
+                            <button onclick="copyResponseToClipboard('mp-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <pre id="mp-response" class="min-h-[200px]"></pre>
+                    </div>
                 </div>
                 <div class="modern-card">
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Pull ID Management</h2>
@@ -342,14 +367,39 @@
                         </div>
                         
                         <div class="grid grid-cols-2 gap-2">
-                            <button onclick="startMediaPush()" class="modern-btn modern-btn-success">Start Push</button>
+                            <div class="flex gap-2">
+                                <button onclick="startMediaPush()" class="modern-btn modern-btn-success flex-1">Start Push</button>
+                                <button onclick="copyMPushStartJSON()" class="modern-btn modern-btn-success modern-btn-icon" title="Copy Start JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <button onclick="listMediaPush()" class="modern-btn modern-btn-primary">List Converters</button>
-                            <button onclick="updateMediaPush()" class="modern-btn modern-btn-warning">Update</button>
+                            <div class="flex gap-2">
+                                <button onclick="updateMediaPush()" class="modern-btn modern-btn-warning flex-1">Update</button>
+                                <button onclick="copyMPushUpdateJSON()" class="modern-btn modern-btn-warning modern-btn-icon" title="Copy Update JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <button onclick="deleteMediaPush()" class="modern-btn modern-btn-danger">Delete</button>
                         </div>
-                        <button onclick="getMediaPushStatus()" class="modern-btn modern-btn-secondary w-full">Get Converter Status</button>
+                        <div id="mpush-copy-msg" class="text-green-400 text-sm hidden mt-2">Copied to clipboard!</div>
+                        <button onclick="getMediaPushStatus()" class="modern-btn modern-btn-secondary w-full mt-2">Get Converter Status</button>
                     </div>
-                    <pre id="mps-response" class="mt-4 min-h-[200px]"></pre>
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
+                            <button onclick="copyResponseToClipboard('mps-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <pre id="mps-response" class="min-h-[200px]"></pre>
+                    </div>
                 </div>
                 <div class="modern-card">
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Push ID Management</h2>
@@ -413,10 +463,18 @@
                         </div>
                         <h3 class="text-lg font-semibold mt-4 mb-2">Streaming Key Operations</h3>
                         <div class="grid grid-cols-2 gap-2">
-                            <button onclick="startMediaGateway()" class="modern-btn modern-btn-success">Create Stream Key</button>
+                            <div class="flex gap-2">
+                                <button onclick="startMediaGateway()" class="modern-btn modern-btn-success flex-1">Create Stream Key</button>
+                                <button onclick="copyMGCreateKeyJSON()" class="modern-btn modern-btn-success modern-btn-icon" title="Copy Create Stream Key JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <button onclick="queryMediaGateway()" class="modern-btn modern-btn-primary">Query Stream Key</button>
                             <button onclick="stopMediaGateway()" class="modern-btn modern-btn-danger">Delete Stream Key</button>
                         </div>
+                        <div id="mg-copy-msg" class="text-green-400 text-sm hidden mt-2">Copied to clipboard!</div>
                         <h3 class="text-lg font-semibold mt-4 mb-2">Flow Configuration Templates</h3>
                         <div class="space-y-3">
                             <input id="mg-template-id" type="text" placeholder="Template ID (e.g., 720p, 1080p)" />
@@ -480,19 +538,33 @@
                             </div>
                             
                             <div class="grid grid-cols-2 gap-2">
-                                <button onclick="createMediaGatewayTemplate()" class="modern-btn modern-btn-primary">Create/Reset Template</button>
-                                <button onclick="updateMediaGatewayTemplate()" class="modern-btn modern-btn-warning">Update Template</button>
-                                <button onclick="deleteMediaGatewayTemplate()" class="modern-btn modern-btn-danger">Delete Template</button>
-                                <button onclick="setGlobalMediaGatewayTemplate()" class="modern-btn modern-btn-secondary">Set Global Template</button>
+                            <div class="flex gap-2">
+                                <button onclick="createMediaGatewayTemplate()" class="modern-btn modern-btn-primary flex-1">Create/Reset Template</button>
+                                <button onclick="copyMGCreateTemplateJSON()" class="modern-btn modern-btn-primary modern-btn-icon" title="Copy Create Template JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="updateMediaGatewayTemplate()" class="modern-btn modern-btn-warning flex-1">Update Template</button>
+                                <button onclick="copyMGUpdateTemplateJSON()" class="modern-btn modern-btn-warning modern-btn-icon" title="Copy Update Template JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <button onclick="deleteMediaGatewayTemplate()" class="modern-btn modern-btn-danger">Delete Template</button>
+                            <button onclick="setGlobalMediaGatewayTemplate()" class="modern-btn modern-btn-secondary">Set Global Template</button>
                             </div>
                         </div>
                         <h3 class="text-lg font-semibold mt-4 mb-2">Streaming Operations</h3>
                         <div class="space-y-2">
                             <input id="mg-stream-id" type="text" placeholder="Stream ID (for query/operations)" />
                             <div class="grid grid-cols-2 gap-2">
-                                <button onclick="queryStreamingList()" class="modern-btn modern-btn-primary">Query Streaming List</button>
-                                <button onclick="queryStreamingInformation()" class="modern-btn modern-btn-primary">Query Streaming Info</button>
-                                <button onclick="forceDisconnectStream()" class="modern-btn modern-btn-danger">Force Disconnect</button>
+                            <button onclick="queryStreamingList()" class="modern-btn modern-btn-primary">Query Streaming List</button>
+                            <button onclick="queryStreamingInformation()" class="modern-btn modern-btn-primary">Query Streaming Info</button>
+                            <button onclick="forceDisconnectStream()" class="modern-btn modern-btn-danger">Force Disconnect</button>
                             </div>
                             <div class="modern-panel">
                                 <label class="font-semibold mb-2 block">Mute/Unmute Options</label>
@@ -508,7 +580,17 @@
                             </div>
                         </div>
                     </div>
-                    <pre id="mg-response" class="mt-4 min-h-[200px]"></pre>
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
+                            <button onclick="copyResponseToClipboard('mg-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <pre id="mg-response" class="min-h-[200px]"></pre>
+                    </div>
                 </div>
                 <div class="modern-card">
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Gateway ID Management</h2>
@@ -542,12 +624,20 @@
                         </div>
                         <input id="ct-instance-id" type="text" placeholder="Instance ID (optional, auto-generated if empty)" />
                         
-                        <h3 class="text-lg font-semibold mt-4">Input Source (RTC)</h3>
-                        <input id="ct-input-channel" type="text" placeholder="Input Channel Name" value="testChannel" />
-                        <input id="ct-input-uid" type="text" placeholder="Input UID" value="0" />
-                        <div class="flex gap-2">
-                            <input id="ct-input-token" type="text" placeholder="Input Token" class="flex-1" />
-                            <button onclick="generateToken('ct-input')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        <div class="flex justify-between items-center mt-4">
+                            <h3 class="text-lg font-semibold">Audio Inputs</h3>
+                            <button onclick="addAudioInput()" class="modern-btn modern-btn-secondary text-sm">+ Add Audio Input</button>
+                        </div>
+                        <div id="ct-audio-inputs-container">
+                            <!-- Audio inputs will be added here dynamically -->
+                        </div>
+                        
+                        <div class="flex justify-between items-center mt-4">
+                            <h3 class="text-lg font-semibold">Video Inputs</h3>
+                            <button onclick="addVideoInput()" class="modern-btn modern-btn-secondary text-sm">+ Add Video Input</button>
+                        </div>
+                        <div id="ct-video-inputs-container">
+                            <!-- Video inputs will be added here dynamically -->
                         </div>
                         
                         <h3 class="text-lg font-semibold mt-4">Output Destination (RTC)</h3>
@@ -612,13 +702,38 @@
                         
                         <h3 class="text-lg font-semibold mt-4 mb-2">Operations</h3>
                         <div class="grid grid-cols-2 gap-2">
-                            <button onclick="createTranscoding()" class="modern-btn modern-btn-primary">Create Task</button>
+                            <div class="flex gap-2">
+                                <button onclick="createTranscoding()" class="modern-btn modern-btn-primary flex-1">Create Task</button>
+                                <button onclick="copyCTCreateJSON()" class="modern-btn modern-btn-primary modern-btn-icon" title="Copy Create JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <button onclick="queryTranscoding()" class="modern-btn modern-btn-warning">Query Tasks</button>
-                            <button onclick="updateTranscoding()" class="modern-btn modern-btn-secondary">Update Task</button>
+                            <div class="flex gap-2">
+                                <button onclick="updateTranscoding()" class="modern-btn modern-btn-secondary flex-1">Update Task</button>
+                                <button onclick="copyCTUpdateJSON()" class="modern-btn modern-btn-secondary modern-btn-icon" title="Copy Update JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <button onclick="destroyTranscoding()" class="modern-btn modern-btn-danger">Destroy Task</button>
                         </div>
+                        <div id="ct-copy-msg" class="text-green-400 text-sm hidden mt-2">Copied to clipboard!</div>
                     </div>
-                    <pre id="ct-response" class="mt-4 min-h-[200px]"></pre>
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
+                            <button onclick="copyResponseToClipboard('ct-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <pre id="ct-response" class="min-h-[200px]"></pre>
+                    </div>
                 </div>
                 <div class="modern-card">
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Cloud Transcoding ID Management</h2>
@@ -636,6 +751,74 @@
                         </div>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Cloud Transcoding Templates Section -->
+            <div class="grid md:grid-cols-2 gap-6 mt-6">
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Cloud Transcoding Templates</h2>
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold">Create/Update Template</h3>
+                        <input id="ct-template-id" type="text" placeholder="Template ID (e.g., hd, sd, low)" />
+                        <label class="flex items-center gap-2">
+                            <input id="ct-template-enabled" type="checkbox" checked />
+                            <span class="text-sm">Enable Template</span>
+                        </label>
+                        
+                        <h3 class="text-lg font-semibold mt-4">Video Settings</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input id="ct-template-width" type="number" placeholder="Width (px)" value="1280" max="1920" />
+                            <input id="ct-template-height" type="number" placeholder="Height (px)" value="720" max="1920" />
+                        </div>
+                        <input id="ct-template-fps" type="number" placeholder="FPS" value="30" max="60" />
+                        
+                        <div class="grid grid-cols-2 gap-2 mt-4">
+                            <button onclick="createOrUpdateCTTemplate()" class="modern-btn modern-btn-primary">Create/Update Template</button>
+                            <button onclick="queryCTTemplates()" class="modern-btn modern-btn-warning">Query Templates</button>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
+                            <button onclick="copyResponseToClipboard('ct-template-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <pre id="ct-template-response" class="min-h-[100px]"></pre>
+                    </div>
+                </div>
+                
+                <div class="modern-card">
+                    <h2 class="text-xl font-bold mb-4 gradient-text-primary">Templates List</h2>
+                    <div id="ct-templates-list" class="space-y-2">
+                        <p class="text-sm text-gray-400">Query templates to see the list here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON Display Modal -->
+    <div id="jsonDisplayModal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center" style="z-index: 102;">
+        <div class="modern-card w-full max-w-4xl mx-4 max-h-[90vh] min-h-[400px] flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-white" id="jsonModalTitle">JSON Configuration</h3>
+                <button id="closeJsonModal" class="text-gray-400 hover:text-white text-2xl leading-none">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="flex-1 overflow-hidden min-h-0">
+                <pre id="jsonModalContent" class="bg-gray-900 text-green-400 p-4 rounded text-sm overflow-auto h-full font-mono whitespace-pre-wrap max-h-full"></pre>
+            </div>
+            <div class="flex justify-end mt-4 space-x-2">
+                <button id="copyJsonFromModal" class="modern-btn modern-btn-primary">
+                    Copy to Clipboard
+                </button>
+                <button id="closeJsonModalBtn" class="modern-btn modern-btn-secondary">
+                    Close
+                </button>
             </div>
         </div>
     </div>
