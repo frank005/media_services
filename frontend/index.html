@@ -217,16 +217,13 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
-                            <button onclick="copyResponseToClipboard('mp-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
-                                </svg>
-                            </button>
-                        </div>
-                        <pre id="mp-response" class="min-h-[200px]"></pre>
+                    <div class="mt-4 relative">
+                        <button onclick="copyResponseToClipboard('mp-response')" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded" title="Copy Response" style="z-index: 10;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
+                        </button>
+                        <pre id="mp-response" class="min-h-[200px] pt-2"></pre>
                     </div>
                 </div>
                 <div class="modern-card">
@@ -389,16 +386,13 @@
                         <div id="mpush-copy-msg" class="text-green-400 text-sm hidden mt-2">Copied to clipboard!</div>
                         <button onclick="getMediaPushStatus()" class="modern-btn modern-btn-secondary w-full mt-2">Get Converter Status</button>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
-                            <button onclick="copyResponseToClipboard('mps-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
-                                </svg>
-                            </button>
-                        </div>
-                        <pre id="mps-response" class="min-h-[200px]"></pre>
+                    <div class="mt-4 relative">
+                        <button onclick="copyResponseToClipboard('mps-response')" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded" title="Copy Response" style="z-index: 10;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
+                        </button>
+                        <pre id="mps-response" class="min-h-[200px] pt-2"></pre>
                     </div>
                 </div>
                 <div class="modern-card">
@@ -580,16 +574,13 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
-                            <button onclick="copyResponseToClipboard('mg-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
-                                </svg>
-                            </button>
-                        </div>
-                        <pre id="mg-response" class="min-h-[200px]"></pre>
+                    <div class="mt-4 relative">
+                        <button onclick="copyResponseToClipboard('mg-response')" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded" title="Copy Response" style="z-index: 10;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
+                        </button>
+                        <pre id="mg-response" class="min-h-[200px] pt-2"></pre>
                     </div>
                 </div>
                 <div class="modern-card">
@@ -723,16 +714,13 @@
                         </div>
                         <div id="ct-copy-msg" class="text-green-400 text-sm hidden mt-2">Copied to clipboard!</div>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
-                            <button onclick="copyResponseToClipboard('ct-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
-                                </svg>
-                            </button>
-                        </div>
-                        <pre id="ct-response" class="min-h-[200px]"></pre>
+                    <div class="mt-4 relative">
+                        <button onclick="copyResponseToClipboard('ct-response')" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded" title="Copy Response" style="z-index: 10;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
+                        </button>
+                        <pre id="ct-response" class="min-h-[200px] pt-2"></pre>
                     </div>
                 </div>
                 <div class="modern-card">
@@ -777,16 +765,13 @@
                             <button onclick="queryCTTemplates()" class="modern-btn modern-btn-warning">Query Templates</button>
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="text-sm font-semibold text-gray-400">Response</h3>
-                            <button onclick="copyResponseToClipboard('ct-template-response')" class="modern-btn modern-btn-secondary modern-btn-icon text-xs" title="Copy Response">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
-                                </svg>
-                            </button>
-                        </div>
-                        <pre id="ct-template-response" class="min-h-[100px]"></pre>
+                    <div class="mt-4 relative">
+                        <button onclick="copyResponseToClipboard('ct-template-response')" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded" title="Copy Response" style="z-index: 10;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
+                        </button>
+                        <pre id="ct-template-response" class="min-h-[100px] pt-2"></pre>
                     </div>
                 </div>
                 
