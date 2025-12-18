@@ -6,11 +6,11 @@
     <title>Agora Media Services Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
-    <link rel="stylesheet" href="modern-ui-library.css">
+    <link rel="stylesheet" href="css/modern-ui-library.css">
     <!-- Token Builder Libraries -->
-    <script src="pako.min.js"></script>
-    <script src="AccessToken2.js"></script>
-    <script src="RtcTokenBuilder2.js"></script>
+    <script src="js/pako.min.js"></script>
+    <script src="js/AccessToken2.js"></script>
+    <script src="js/RtcTokenBuilder2.js"></script>
     <style>
         body {
             overflow-y: auto;
@@ -104,11 +104,23 @@
                         <button onclick="leaveHostChannel()" class="modern-btn modern-btn-danger">Leave</button>
                     </div>
                     <div id="host-controls" class="flex gap-2 hidden">
-                        <button id="toggleMicBtn" class="modern-btn modern-btn-secondary" title="Mute Microphone">
-                            <span id="mic-icon">🎤</span> <span id="mic-text">Mute Mic</span>
+                        <button id="toggleMicBtn" class="modern-btn modern-btn-secondary modern-btn-icon" title="Mute Microphone">
+                            <svg class="w-5 h-5 mic-icon" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0019 10a1 1 0 10-2 0A5 5 0 015 10a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"></path>
+                            </svg>
+                            <svg class="w-5 h-5 mic-off-icon hidden" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0019 10a1 1 0 10-2 0A5 5 0 015 10a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"></path>
+                                <path d="M3.707 2.293L16.293 17.707" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                            </svg>
                         </button>
-                        <button id="toggleCameraBtn" class="modern-btn modern-btn-secondary" title="Mute Camera">
-                            <span id="camera-icon">📹</span> <span id="camera-text">Mute Camera</span>
+                        <button id="toggleCameraBtn" class="modern-btn modern-btn-secondary modern-btn-icon" title="Mute Camera">
+                            <svg class="w-5 h-5 camera-icon" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"/>
+                            </svg>
+                            <svg class="w-5 h-5 camera-off-icon hidden" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"/>
+                                <path d="M3.707 2.293L16.293 17.707" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                            </svg>
                         </button>
                     </div>
                     <div id="host-status" class="text-sm text-gray-400"></div>
@@ -133,6 +145,12 @@
                     <div class="flex gap-2">
                         <button onclick="joinChannelAsAudience()" class="modern-btn modern-btn-secondary">Join as Audience</button>
                         <button onclick="leaveAudienceChannel()" class="modern-btn modern-btn-danger">Leave</button>
+                    </div>
+                    <div id="audience-video-selector" class="hidden mt-3">
+                        <label class="text-sm text-gray-400 mb-1 block">Select Video Stream:</label>
+                        <select id="audience-video-select" class="w-full bg-slate-700 text-white border border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="auto">Auto (Most Recent)</option>
+                        </select>
                     </div>
                     <div id="audience-status" class="text-sm text-gray-400"></div>
                 </div>
@@ -209,17 +227,26 @@
                 <div class="modern-card">
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Push Control</h2>
                     <div class="space-y-4">
+                        <label>Streaming Mode:</label>
+                        <select id="mps-mode">
+                            <option value="raw">Non-Transcoded (Single Host)</option>
+                            <option value="transcoded">Transcoded (Multiple Hosts)</option>
+                        </select>
+                        
                         <label>Join Method:</label>
                         <select id="mps-join-method">
                             <option value="sdk">Join as Host (Agora SDK)</option>
                             <option value="media-pull">Use Media Pull</option>
                         </select>
+                        
+                        <input id="mps-name" type="text" placeholder="Converter Name (optional)" />
                         <input id="mps-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="mps-uid" type="text" placeholder="UID (optional)" />
+                        <input id="mps-uid" type="text" placeholder="UID" value="444" />
                         <div class="flex gap-2">
                             <input id="mps-token" type="text" placeholder="Token (optional)" class="flex-1" />
                             <button onclick="generateToken('mps')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
                         </div>
+                        
                         <label>Push Destination:</label>
                         <select id="mps-destination">
                             <option value="facebook">Facebook</option>
@@ -238,12 +265,89 @@
                             <input id="mps-yt-url" type="text" placeholder="YouTube RTMP URL" value="rtmp://a.rtmp.youtube.com/live2/" />
                             <input id="mps-yt-key" type="text" placeholder="YouTube Stream Key" />
                         </div>
+                        
+                        <input id="mps-region-hint-ip" type="text" placeholder="Region Hint IP (optional)" />
+                        <input id="mps-idle-timeout" type="number" placeholder="Idle Timeout (seconds, optional)" />
+                        <input id="mps-jitter-buffer" type="number" placeholder="Jitter Buffer Size (ms, 0-1000, default: 1000)" value="1000" />
+                        
+                        <!-- Transcoded Options (hidden by default) -->
+                        <div id="mps-transcoded-options" class="hidden space-y-4 border-t border-gray-700 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-400">Transcoding Configuration</h3>
+                            
+                            <div>
+                                <label class="text-sm text-gray-400">Layout Type:</label>
+                                <select id="mps-layout-type">
+                                    <option value="0">Custom Layout</option>
+                                    <option value="1">Vertical Layout</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm text-gray-400">Canvas:</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <input id="mps-canvas-width" type="number" placeholder="Width" value="640" />
+                                    <input id="mps-canvas-height" type="number" placeholder="Height" value="360" />
+                                    <input id="mps-canvas-color" type="text" placeholder="Color (hex, optional)" />
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm text-gray-400">Video Options:</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input id="mps-video-bitrate" type="number" placeholder="Bitrate (Kbps, 1-10000)" value="800" />
+                                    <input id="mps-video-framerate" type="number" placeholder="Frame Rate (1-30)" value="15" />
+                                    <input id="mps-video-gop" type="number" placeholder="GOP (optional)" />
+                                    <select id="mps-video-codec">
+                                        <option value="H.264">H.264</option>
+                                        <option value="H.265">H.265</option>
+                                    </select>
+                                    <select id="mps-video-codec-profile">
+                                        <option value="high">High</option>
+                                        <option value="baseline">Baseline</option>
+                                        <option value="main">Main</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm text-gray-400">Audio Options:</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <select id="mps-audio-codec-profile">
+                                        <option value="LC-AAC">LC-AAC</option>
+                                        <option value="HE-AAC">HE-AAC</option>
+                                    </select>
+                                    <input id="mps-audio-sample-rate" type="number" placeholder="Sample Rate" value="48000" />
+                                    <input id="mps-audio-bitrate" type="number" placeholder="Bitrate" value="48" />
+                                    <input id="mps-audio-channels" type="number" placeholder="Channels (1 or 2)" value="1" />
+                                </div>
+                                <input id="mps-audio-stream-uids" type="text" placeholder="Audio Stream UIDs (comma-separated, optional)" class="mt-2" />
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm text-gray-400">Placeholder Image URL (optional):</label>
+                                <input id="mps-placeholder-image" type="text" placeholder="Default placeholder image URL" />
+                            </div>
+                            
+                            <div id="mps-vertical-layout-options" class="hidden">
+                                <label class="text-sm text-gray-400">Vertical Layout Options:</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input id="mps-vertical-max-uid" type="number" placeholder="Max Resolution UID" />
+                                    <select id="mps-vertical-fill-mode">
+                                        <option value="fill">Fill</option>
+                                        <option value="fit">Fit</option>
+                                    </select>
+                                    <input id="mps-vertical-refresh" type="number" placeholder="Refresh Interval (seconds)" value="4" />
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="grid grid-cols-2 gap-2">
                             <button onclick="startMediaPush()" class="modern-btn modern-btn-success">Start Push</button>
                             <button onclick="listMediaPush()" class="modern-btn modern-btn-primary">List Converters</button>
                             <button onclick="updateMediaPush()" class="modern-btn modern-btn-warning">Update</button>
                             <button onclick="deleteMediaPush()" class="modern-btn modern-btn-danger">Delete</button>
                         </div>
+                        <button onclick="getMediaPushStatus()" class="modern-btn modern-btn-secondary w-full">Get Converter Status</button>
                     </div>
                     <pre id="mps-response" class="mt-4 min-h-[200px]"></pre>
                 </div>
@@ -256,6 +360,10 @@
                                 <input id="mps-converter-id" type="text" placeholder="Converter ID will appear here or enter existing ID" class="flex-1" />
                                 <button onclick="copyToClipboard('mps-converter-id')" class="modern-btn modern-btn-secondary" title="Copy ID">Copy</button>
                             </div>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400">Query Channel (optional, for channel-specific listing):</label>
+                            <input id="mps-query-channel" type="text" placeholder="Channel name (leave empty for all)" />
                         </div>
                         <div id="mps-converter-info" class="mt-4 space-y-2">
                             <p class="text-sm text-gray-400">Converter details will appear here</p>
@@ -290,10 +398,18 @@
                             <div id="mg-obs-status" class="mt-2 text-sm"></div>
                         </div>
                         <input id="mg-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="mg-uid" type="text" placeholder="UID (optional)" />
+                        <input id="mg-uid" type="text" placeholder="UID" value="333" />
                         <div class="flex gap-2">
                             <input id="mg-token" type="text" placeholder="Token (optional)" class="flex-1" />
                             <button onclick="generateToken('mg')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400">Expires After (seconds, 0 = never expire):</label>
+                            <input id="mg-expires-after" type="number" placeholder="0" value="0" min="0" />
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400">Template ID (optional):</label>
+                            <input id="mg-template-id-create" type="text" placeholder="Template ID (optional, e.g., 720p, 1080p)" />
                         </div>
                         <h3 class="text-lg font-semibold mt-4 mb-2">Streaming Key Operations</h3>
                         <div class="grid grid-cols-2 gap-2">
@@ -302,20 +418,94 @@
                             <button onclick="stopMediaGateway()" class="modern-btn modern-btn-danger">Delete Stream Key</button>
                         </div>
                         <h3 class="text-lg font-semibold mt-4 mb-2">Flow Configuration Templates</h3>
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-3">
                             <input id="mg-template-id" type="text" placeholder="Template ID (e.g., 720p, 1080p)" />
-                            <button onclick="createMediaGatewayTemplate()" class="modern-btn modern-btn-primary">Create/Reset Template</button>
-                            <button onclick="updateMediaGatewayTemplate()" class="modern-btn modern-btn-warning">Update Template</button>
-                            <button onclick="deleteMediaGatewayTemplate()" class="modern-btn modern-btn-danger">Delete Template</button>
-                            <button onclick="setGlobalMediaGatewayTemplate()" class="modern-btn modern-btn-secondary">Set Global Template</button>
+                            
+                            <!-- Video Transcoding Settings -->
+                            <div class="modern-panel">
+                                <label class="flex items-center gap-2 mb-2">
+                                    <input type="checkbox" id="mg-tmpl-video-enabled" checked />
+                                    <span class="font-semibold">Video Transcoding</span>
+                                </label>
+                                <div id="mg-tmpl-video-settings" class="space-y-2 ml-6">
+                                    <label class="text-sm text-gray-400">Video Codec:</label>
+                                    <select id="mg-tmpl-video-codec">
+                                        <option value="H.264">H.264</option>
+                                        <option value="H.265">H.265</option>
+                                        <option value="VP8">VP8</option>
+                                        <option value="VP9">VP9</option>
+                                    </select>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input id="mg-tmpl-video-width" type="number" placeholder="Width" value="1280" min="1" />
+                                        <input id="mg-tmpl-video-height" type="number" placeholder="Height" value="720" min="1" />
+                                        <input id="mg-tmpl-video-fps" type="number" placeholder="FPS" value="24" min="1" max="60" />
+                                        <input id="mg-tmpl-video-bitrate" type="number" placeholder="Bitrate (kbps)" value="2200" min="1" />
+                                    </div>
+                                    <label class="text-sm text-gray-400 mt-2">Simulcast Stream (optional):</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input id="mg-tmpl-video-sim-width" type="number" placeholder="Sim Width" value="960" min="1" />
+                                        <input id="mg-tmpl-video-sim-height" type="number" placeholder="Sim Height" value="540" min="1" />
+                                        <input id="mg-tmpl-video-sim-fps" type="number" placeholder="Sim FPS" value="24" min="1" max="60" />
+                                        <input id="mg-tmpl-video-sim-bitrate" type="number" placeholder="Sim Bitrate (kbps)" value="1670" min="1" />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Audio Transcoding Settings -->
+                            <div class="modern-panel">
+                                <label class="flex items-center gap-2 mb-2">
+                                    <input type="checkbox" id="mg-tmpl-audio-enabled" />
+                                    <span class="font-semibold">Audio Transcoding</span>
+                                </label>
+                                <div id="mg-tmpl-audio-settings" class="space-y-2 ml-6">
+                                    <label class="text-sm text-gray-400">Audio Profile:</label>
+                                    <select id="mg-tmpl-audio-profile">
+                                        <option value="0">0 - 8kHz sampling, mono, 18 kbps</option>
+                                        <option value="1">1 - 16kHz sampling, mono, 24 kbps</option>
+                                        <option value="2">2 - 48kHz sampling, mono, 48 kbps</option>
+                                        <option value="3" selected>3 - 48kHz sampling, stereo, 64 kbps</option>
+                                        <option value="4">4 - 48kHz sampling, stereo, 96 kbps</option>
+                                        <option value="5">5 - 48kHz sampling, stereo, 128 kbps</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Jitter Buffer Settings -->
+                            <div class="modern-panel">
+                                <label class="font-semibold mb-2 block">Jitter Buffer</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input id="mg-tmpl-jitter-size" type="number" placeholder="Size (ms)" value="500" min="0" max="2000" />
+                                    <input id="mg-tmpl-jitter-max" type="number" placeholder="Max Size (ms)" value="800" min="0" max="2000" />
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="createMediaGatewayTemplate()" class="modern-btn modern-btn-primary">Create/Reset Template</button>
+                                <button onclick="updateMediaGatewayTemplate()" class="modern-btn modern-btn-warning">Update Template</button>
+                                <button onclick="deleteMediaGatewayTemplate()" class="modern-btn modern-btn-danger">Delete Template</button>
+                                <button onclick="setGlobalMediaGatewayTemplate()" class="modern-btn modern-btn-secondary">Set Global Template</button>
+                            </div>
                         </div>
                         <h3 class="text-lg font-semibold mt-4 mb-2">Streaming Operations</h3>
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-2">
                             <input id="mg-stream-id" type="text" placeholder="Stream ID (for query/operations)" />
-                            <button onclick="queryStreamingList()" class="modern-btn modern-btn-primary">Query Streaming List</button>
-                            <button onclick="queryStreamingInformation()" class="modern-btn modern-btn-primary">Query Streaming Info</button>
-                            <button onclick="forceDisconnectStream()" class="modern-btn modern-btn-danger">Force Disconnect</button>
-                            <button onclick="muteUnmuteStream()" class="modern-btn modern-btn-warning">Mute/Unmute Stream</button>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="queryStreamingList()" class="modern-btn modern-btn-primary">Query Streaming List</button>
+                                <button onclick="queryStreamingInformation()" class="modern-btn modern-btn-primary">Query Streaming Info</button>
+                                <button onclick="forceDisconnectStream()" class="modern-btn modern-btn-danger">Force Disconnect</button>
+                            </div>
+                            <div class="modern-panel">
+                                <label class="font-semibold mb-2 block">Mute/Unmute Options</label>
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" id="mg-mute-audio" checked />
+                                    <span>Mute Audio</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" id="mg-mute-video" />
+                                    <span>Mute Video</span>
+                                </label>
+                                <button onclick="muteUnmuteStream()" class="modern-btn modern-btn-warning mt-2 w-full">Apply Mute/Unmute</button>
+                            </div>
                         </div>
                     </div>
                     <pre id="mg-response" class="mt-4 min-h-[200px]"></pre>
@@ -505,7 +695,7 @@
         </svg>
     </a>
 
-    <script src="app.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
 

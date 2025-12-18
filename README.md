@@ -39,11 +39,65 @@ A comprehensive demo application showcasing four Agora media services:
 - Create and query transcoding templates
 - Join channel as audience member
 
+## Project Structure
+
+```
+media_services/
+├── frontend/              # Frontend application files
+│   ├── index.html        # Main HTML file
+│   ├── css/              # Stylesheets
+│   │   └── modern-ui-library.css
+│   └── js/               # JavaScript files
+│       ├── app.js        # Main application logic
+│       ├── AccessToken2.js
+│       ├── RtcTokenBuilder2.js
+│       └── pako.min.js
+├── netlify/              # Netlify Functions (backend proxy)
+│   └── functions/
+│       └── proxy.js      # Generic API proxy function
+├── netlify.toml          # Netlify configuration
+└── package.json          # Node.js dependencies
+```
+
+## Deployment
+
+### Deploy to Netlify
+
+This application uses Netlify Functions to proxy API requests, avoiding CORS preflight issues. To deploy:
+
+1. **Connect to Netlify**:
+   - Push this repository to GitHub
+   - Connect your GitHub repository to Netlify
+   - Netlify will automatically detect the `netlify.toml` configuration
+
+2. **Build Settings** (auto-detected):
+   - Build command: (none required)
+   - Publish directory: `frontend`
+   - Functions directory: `netlify/functions`
+
+3. **Deploy**:
+   - Netlify will automatically deploy on every push to the main branch
+   - Or trigger a manual deploy from the Netlify dashboard
+
+### Local Development
+
+For local development, you can use Netlify CLI:
+
+```bash
+# Install Netlify CLI
+npm install -g netlify-cli
+
+# Serve locally with Netlify Functions
+netlify dev
+```
+
+This will start a local server with the proxy functions available at `http://localhost:8888`.
+
 ## Setup
 
 1. **Clone or download this repository**
 
-2. **Open `index.html` in a web browser**
+2. **Open `frontend/index.html` in a web browser** (or deploy to Netlify)
 
 3. **Set API Credentials**:
    - Click "Set API Credentials" button
@@ -151,6 +205,8 @@ Each service tab includes a video player that allows you to join the channel as 
 - OBS WebSocket connection is required for Media Gateway
 - Media Gateway returns a streaming key that should be used in OBS with server: `rtmp://rtmp.agora.io/live`
 - Some operations require IDs from previous operations (Player ID, Converter ID, Task ID, Stream Key)
+- **API requests are proxied through Netlify Functions** to avoid CORS preflight issues
+- The proxy function handles all Agora API calls (api.agora.io and api.sd-rtn.com)
 
 ## Documentation Links
 
