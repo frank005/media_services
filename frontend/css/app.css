@@ -1,0 +1,52 @@
+/* ============================================
+   PROJECT-SPECIFIC STYLES
+   Agora Media Services Demo
+   ============================================ */
+
+/* ============================================
+   TOOLTIP STYLES (JavaScript-based, CSS disabled to prevent duplicates)
+   ============================================ */
+
+/* Disable CSS tooltips - we use JavaScript only */
+[data-tooltip]::before,
+[data-tooltip]::after,
+[title]::before,
+[title]::after {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Disable native browser tooltips for elements with data-tooltip */
+[data-tooltip] {
+  pointer-events: auto;
+}
+
+/* Custom tooltip element created by JavaScript */
+#global-tooltip {
+  display: none;
+  position: fixed;
+  padding: 10px 14px;
+  background-color: rgba(15, 23, 42, 0.98);
+  color: #e2e8f0;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  white-space: normal;
+  min-width: 180px;
+  max-width: 400px;
+  width: max-content;
+  text-align: left;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.2);
+  line-height: 1.5;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: none;
+  z-index: 10001;
+}
+

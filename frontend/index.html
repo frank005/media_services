@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
     <link rel="stylesheet" href="css/modern-ui-library.css">
+    <link rel="stylesheet" href="css/app.css">
     <!-- Token Builder Libraries -->
     <script src="js/pako.min.js"></script>
     <script src="js/AccessToken2.js"></script>
@@ -77,7 +78,7 @@
         <!-- Header -->
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold gradient-text-primary">Agora Media Services Demo</h1>
-            <button onclick="toggleAuthPopup()" class="modern-btn modern-btn-secondary">
+            <button onclick="toggleAuthPopup()" class="modern-btn modern-btn-secondary" data-tooltip="Configure your Agora Customer ID, Secret, App ID, and Region for API authentication">
                 Set API Credentials
             </button>
         </div>
@@ -92,19 +93,19 @@
                 </div>
                 <div class="mt-4 space-y-3">
                     <div class="grid grid-cols-2 gap-2">
-                        <input id="host-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="host-uid" type="text" placeholder="UID (optional)" />
+                        <input id="host-channel" type="text" placeholder="Channel Name" value="testChannel" data-tooltip="The Agora RTC channel name to join as host" />
+                        <input id="host-uid" type="text" placeholder="UID (optional)" data-tooltip="The UID for the host in the RTC channel. If empty, Agora will assign a random UID" />
                     </div>
                     <div class="flex gap-2">
-                        <input id="host-token" type="text" placeholder="Token (optional)" class="flex-1" />
-                        <button onclick="generateToken('host')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        <input id="host-token" type="text" placeholder="Token (optional)" class="flex-1" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels" />
+                        <button onclick="generateToken('host')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC token for the host using the configured UID and channel name">Generate</button>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="joinChannelAsHost()" class="modern-btn modern-btn-primary">Join as Host</button>
-                        <button onclick="leaveHostChannel()" class="modern-btn modern-btn-danger">Leave</button>
+                        <button onclick="joinChannelAsHost()" class="modern-btn modern-btn-primary" data-tooltip="Join the RTC channel as a host. You will publish audio and video streams that others can subscribe to">Join as Host</button>
+                        <button onclick="leaveHostChannel()" class="modern-btn modern-btn-danger" data-tooltip="Leave the RTC channel and stop publishing audio/video">Leave</button>
                     </div>
                     <div id="host-controls" class="flex gap-2 hidden">
-                        <button id="toggleMicBtn" class="modern-btn modern-btn-secondary modern-btn-icon" title="Mute Microphone">
+                        <button id="toggleMicBtn" class="modern-btn modern-btn-secondary modern-btn-icon" data-tooltip="Toggle microphone on/off. When muted, your audio will not be published to the channel">
                             <svg class="w-5 h-5 mic-icon" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0019 10a1 1 0 10-2 0A5 5 0 015 10a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"></path>
                             </svg>
@@ -113,7 +114,7 @@
                                 <path d="M3.707 2.293L16.293 17.707" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
                             </svg>
                         </button>
-                        <button id="toggleCameraBtn" class="modern-btn modern-btn-secondary modern-btn-icon" title="Mute Camera">
+                        <button id="toggleCameraBtn" class="modern-btn modern-btn-secondary modern-btn-icon" data-tooltip="Toggle camera on/off. When muted, your video will not be published to the channel">
                             <svg class="w-5 h-5 camera-icon" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"/>
                             </svg>
@@ -135,20 +136,20 @@
                 </div>
                 <div class="mt-4 space-y-3">
                     <div class="grid grid-cols-2 gap-2">
-                        <input id="audience-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="audience-uid" type="text" placeholder="UID (optional)" />
+                        <input id="audience-channel" type="text" placeholder="Channel Name" value="testChannel" data-tooltip="The Agora RTC channel name to join as audience" />
+                        <input id="audience-uid" type="text" placeholder="UID (optional)" data-tooltip="The UID for the audience member in the RTC channel. If empty, Agora will assign a random UID" />
                     </div>
                     <div class="flex gap-2">
-                        <input id="audience-token" type="text" placeholder="Token (optional)" class="flex-1" />
-                        <button onclick="generateToken('audience')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        <input id="audience-token" type="text" placeholder="Token (optional)" class="flex-1" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels" />
+                        <button onclick="generateToken('audience')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC token for the audience member using the configured UID and channel name">Generate</button>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="joinChannelAsAudience()" class="modern-btn modern-btn-secondary">Join as Audience</button>
-                        <button onclick="leaveAudienceChannel()" class="modern-btn modern-btn-danger">Leave</button>
+                        <button onclick="joinChannelAsAudience()" class="modern-btn modern-btn-secondary" data-tooltip="Join the RTC channel as audience. You will subscribe to and view audio/video streams from hosts">Join as Audience</button>
+                        <button onclick="leaveAudienceChannel()" class="modern-btn modern-btn-danger" data-tooltip="Leave the RTC channel and stop subscribing to streams">Leave</button>
                     </div>
                     <div id="audience-video-selector" class="hidden mt-3">
-                        <label class="text-sm text-gray-400 mb-1 block">Select Video Stream:</label>
-                        <select id="audience-video-select" class="w-full bg-slate-700 text-white border border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <label class="text-sm text-gray-400 mb-1 block" data-tooltip="Select which host's video stream to display. Auto mode shows the most recently active stream">Select Video Stream:</label>
+                        <select id="audience-video-select" class="w-full bg-slate-700 text-white border border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" data-tooltip="Select which host's video stream to display. Auto mode shows the most recently active stream">
                             <option value="auto">Auto (Most Recent)</option>
                         </select>
                     </div>
@@ -159,10 +160,10 @@
 
         <!-- Tabs -->
         <div class="tab-container">
-            <button class="tab-btn active" data-tab="media-pull">Media Pull</button>
-            <button class="tab-btn" data-tab="media-push">Media Push</button>
-            <button class="tab-btn" data-tab="media-gateway">Media Gateway</button>
-            <button class="tab-btn" data-tab="cloud-transcoding">Cloud Transcoding</button>
+            <button class="tab-btn active" data-tab="media-pull" data-tooltip="Media Pull: Pull external video streams into Agora RTC channels">Media Pull</button>
+            <button class="tab-btn" data-tab="media-push" data-tooltip="Media Push: Push Agora RTC streams to external CDN platforms (RTMP)">Media Push</button>
+            <button class="tab-btn" data-tab="media-gateway" data-tooltip="Media Gateway: Bridge OBS Studio with Agora RTC channels">Media Gateway</button>
+            <button class="tab-btn" data-tab="cloud-transcoding" data-tooltip="Cloud Transcoding: Real-time transcoding and mixing of multiple audio/video streams">Cloud Transcoding</button>
         </div>
 
         <!-- Media Pull Tab -->
@@ -171,54 +172,54 @@
                 <div class="modern-card">
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Pull Control</h2>
                     <div class="space-y-4">
-                        <input id="mp-url" type="text" placeholder="Video URL (default AWS URL)" value="https://dev-generic.s3.us-east-2.amazonaws.com/TEST/0113e48fba4b84269590d88eecbb130c_TEST_0.mp4" />
-                        <input id="mp-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="mp-uid" type="text" placeholder="UID" value="666" />
+                        <input id="mp-url" type="text" placeholder="Video URL (default AWS URL)" value="https://dev-generic.s3.us-east-2.amazonaws.com/TEST/0113e48fba4b84269590d88eecbb130c_TEST_0.mp4" data-tooltip="The URL of the video source stream to pull and play in the RTC channel" />
+                        <input id="mp-channel" type="text" placeholder="Channel Name" value="testChannel" data-tooltip="The Agora RTC channel name where the video stream will be published" />
+                        <input id="mp-uid" type="text" placeholder="UID" value="666" data-tooltip="The UID of the cloud player in the RTC channel. Must be unique in the channel" />
                         <div class="flex gap-2">
-                            <input id="mp-token" type="text" placeholder="Token (optional)" class="flex-1" />
-                            <button onclick="generateToken('mp')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                            <input id="mp-token" type="text" placeholder="Token (optional)" class="flex-1" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Set uid to the player UID when generating the token" />
+                            <button onclick="generateToken('mp')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC token for the Media Pull player using the configured UID">Generate</button>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div class="flex gap-2">
-                                <button onclick="startMediaPull()" class="modern-btn modern-btn-success flex-1">Start Media Pull</button>
-                                <button onclick="copyMPStartJSON()" class="modern-btn modern-btn-success modern-btn-icon" title="Copy Start JSON">
+                                <button onclick="startMediaPull()" class="modern-btn modern-btn-success flex-1" data-tooltip="Start a new Media Pull task to pull an external video stream into the RTC channel">Start Media Pull</button>
+                                <button onclick="copyMPStartJSON()" class="modern-btn modern-btn-success modern-btn-icon" data-tooltip="Copy the Start Media Pull JSON request body to clipboard">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
                                     </svg>
                                 </button>
                             </div>
-                            <button onclick="listMediaPulls()" class="modern-btn modern-btn-primary">List Media Pulls</button>
+                            <button onclick="listMediaPulls()" class="modern-btn modern-btn-primary" data-tooltip="List all active Media Pull players in your project">List Media Pulls</button>
                             <div class="flex gap-2">
-                                <button onclick="updateMediaPull()" class="modern-btn modern-btn-warning flex-1">Update Media Pull</button>
-                                <button onclick="copyMPUpdateJSON()" class="modern-btn modern-btn-warning modern-btn-icon" title="Copy Update JSON">
+                                <button onclick="updateMediaPull()" class="modern-btn modern-btn-warning flex-1" data-tooltip="Update an existing Media Pull player. You can change the volume, seek position, and pause state. The Player ID must be set first.">Update Media Pull</button>
+                                <button onclick="copyMPUpdateJSON()" class="modern-btn modern-btn-warning modern-btn-icon" data-tooltip="Copy the Update Media Pull JSON request body to clipboard">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16h8M8 12h8m-8-4h8m2 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2z"></path>
                                     </svg>
                                 </button>
                             </div>
-                            <button onclick="deleteMediaPull()" class="modern-btn modern-btn-danger">Delete Media Pull</button>
+                            <button onclick="deleteMediaPull()" class="modern-btn modern-btn-danger" data-tooltip="Delete/stop the Media Pull player. The player ID must be set">Delete Media Pull</button>
                         </div>
                         <div id="mp-copy-msg" class="text-green-400 text-sm hidden mt-2">Copied to clipboard!</div>
                         <div class="border-t border-gray-700 pt-4 mt-4">
                             <h3 class="text-sm font-semibold text-gray-400 mb-3">Update Options</h3>
                             <div class="space-y-3">
                                 <div>
-                                    <label class="text-sm text-gray-400 block mb-1">Audio Volume (0-200, default: 100)</label>
-                                    <input id="mp-volume" type="number" min="0" max="200" placeholder="100" value="100" />
+                                    <label class="text-sm text-gray-400 block mb-1" data-tooltip="The volume of the cloud player. Range: 0-200. Default: 100 (original volume)">Audio Volume (0-200, default: 100)</label>
+                                    <input id="mp-volume" type="number" min="0" max="200" placeholder="100" value="100" data-tooltip="The volume of the cloud player. Range: 0-200. Default: 100 (original volume)" />
                                 </div>
                                 <div>
-                                    <label class="text-sm text-gray-400 block mb-1">Seek Position (seconds)</label>
-                                    <input id="mp-seek" type="number" min="0" placeholder="0" value="" />
+                                    <label class="text-sm text-gray-400 block mb-1" data-tooltip="The playback position in seconds to seek to in the media stream">Seek Position (seconds)</label>
+                                    <input id="mp-seek" type="number" min="0" placeholder="0" value="" data-tooltip="The playback position in seconds to seek to in the media stream" />
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <input id="mp-pause" type="checkbox" />
-                                    <label for="mp-pause" class="text-sm text-gray-400">Pause playback</label>
+                                    <input id="mp-pause" type="checkbox" data-tooltip="Whether to pause the playback of the media stream source file" />
+                                    <label for="mp-pause" class="text-sm text-gray-400" data-tooltip="Whether to pause the playback of the media stream source file">Pause playback</label>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="mt-4 relative">
-                        <button onclick="copyResponseToClipboard('mp-response')" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded" title="Copy Response" style="z-index: 10;">
+                        <button onclick="copyResponseToClipboard('mp-response')" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded" data-tooltip="Copy the API response to clipboard" style="z-index: 10;">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                             </svg>
@@ -230,14 +231,14 @@
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Pull ID Management</h2>
                     <div class="space-y-3">
                         <div>
-                            <label class="text-sm text-gray-400">Player ID (auto-filled when created, or enter existing):</label>
+                            <label class="text-sm text-gray-400" data-tooltip="The unique identifier for the Media Pull player. Auto-filled when created, or enter an existing ID for update/delete operations">Player ID (auto-filled when created, or enter existing):</label>
                             <div class="flex gap-2">
-                                <input id="mp-player-id" type="text" placeholder="Player ID will appear here or enter existing ID" class="flex-1" />
-                                <button onclick="copyToClipboard('mp-player-id')" class="modern-btn modern-btn-secondary" title="Copy ID">Copy</button>
+                                <input id="mp-player-id" type="text" placeholder="Player ID will appear here or enter existing ID" class="flex-1" data-tooltip="The unique identifier for the Media Pull player. Auto-filled when created, or enter an existing ID for update/delete operations" />
+                                <button onclick="copyToClipboard('mp-player-id')" class="modern-btn modern-btn-secondary" data-tooltip="Copy the Player ID to clipboard">Copy</button>
                             </div>
                         </div>
                     </div>
-                    <h3 class="text-lg font-semibold mt-4 mb-2">Media Pull List</h3>
+                    <h3 class="text-lg font-semibold mt-4 mb-2" data-tooltip="List of all active Media Pull players">Media Pull List</h3>
                     <div id="mp-list" class="space-y-2"></div>
                 </div>
             </div>
@@ -249,81 +250,81 @@
                 <div class="modern-card">
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Push Control</h2>
                     <div class="space-y-4">
-                        <label>Streaming Mode:</label>
-                        <select id="mps-mode">
+                        <label title="Select whether to use transcoded streaming (for multiple hosts) or non-transcoded streaming (for single host)">Streaming Mode:</label>
+                        <select id="mps-mode" title="Select whether to use transcoded streaming (for multiple hosts) or non-transcoded streaming (for single host)">
                             <option value="raw">Non-Transcoded (Single Host)</option>
                             <option value="transcoded">Transcoded (Multiple Hosts)</option>
                         </select>
                         
-                        <label>Join Method:</label>
-                        <select id="mps-join-method">
+                        <label title="Method to join the channel: Join as host using Agora SDK, or use Media Pull to pull an external stream">Join Method:</label>
+                        <select id="mps-join-method" title="Method to join the channel: Join as host using Agora SDK, or use Media Pull to pull an external stream">
                             <option value="sdk">Join as Host (Agora SDK)</option>
                             <option value="media-pull">Use Media Pull</option>
                         </select>
                         
-                        <input id="mps-name" type="text" placeholder="Converter Name (optional)" />
-                        <input id="mps-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="mps-uid" type="text" placeholder="UID" value="444" />
+                        <input id="mps-name" type="text" placeholder="Converter Name (optional)" title="The name of the Converter. Maximum 64 characters. Used to manage multiple converters. If empty, multiple converters can be created but they cannot have the same name" />
+                        <input id="mps-channel" type="text" placeholder="Channel Name" value="testChannel" title="The Agora RTC channel name where the stream is published" />
+                        <input id="mps-uid" type="text" placeholder="UID" value="444" title="The UID of the user in the RTC channel. Must be unique in the channel" />
                         <div class="flex gap-2">
-                            <input id="mps-token" type="text" placeholder="Token (optional)" class="flex-1" />
+                            <input id="mps-token" type="text" placeholder="Token (optional)" class="flex-1" title="Token for authentication to join the RTC channel. Required for secure channels" />
                             <button onclick="generateToken('mps')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
                         </div>
                         
-                        <label>Push Destination:</label>
-                        <select id="mps-destination">
+                        <label title="The destination platform where the stream will be pushed">Push Destination:</label>
+                        <select id="mps-destination" title="The destination platform where the stream will be pushed">
                             <option value="facebook">Facebook</option>
                             <option value="youtube">YouTube</option>
                             <option value="custom">Custom</option>
                         </select>
                         <div id="mps-custom-config" class="hidden space-y-2">
-                            <input id="mps-custom-url" type="text" placeholder="RTMP URL" />
-                            <input id="mps-custom-key" type="text" placeholder="Stream Key" />
+                            <input id="mps-custom-url" type="text" placeholder="RTMP URL" title="The RTMP URL for custom destination (without stream key)" />
+                            <input id="mps-custom-key" type="text" placeholder="Stream Key" title="The stream key for custom destination" />
                         </div>
                         <div id="mps-facebook-config" class="space-y-2">
-                            <input id="mps-fb-url" type="text" placeholder="Facebook RTMP URL" value="rtmp://live-api-s.facebook.com:80/rtmp/" />
-                            <input id="mps-fb-key" type="text" placeholder="Facebook Stream Key" />
+                            <input id="mps-fb-url" type="text" placeholder="Facebook RTMP URL" value="rtmp://live-api-s.facebook.com:80/rtmp/" title="The Facebook RTMP URL (without stream key)" />
+                            <input id="mps-fb-key" type="text" placeholder="Facebook Stream Key" title="Your Facebook Live stream key" />
                         </div>
                         <div id="mps-youtube-config" class="hidden space-y-2">
-                            <input id="mps-yt-url" type="text" placeholder="YouTube RTMP URL" value="rtmp://a.rtmp.youtube.com/live2/" />
-                            <input id="mps-yt-key" type="text" placeholder="YouTube Stream Key" />
+                            <input id="mps-yt-url" type="text" placeholder="YouTube RTMP URL" value="rtmp://a.rtmp.youtube.com/live2/" title="The YouTube RTMP URL (without stream key)" />
+                            <input id="mps-yt-key" type="text" placeholder="YouTube Stream Key" title="Your YouTube Live stream key" />
                         </div>
                         
-                        <input id="mps-region-hint-ip" type="text" placeholder="Region Hint IP (optional)" />
-                        <input id="mps-idle-timeout" type="number" placeholder="Idle Timeout (seconds, optional)" />
-                        <input id="mps-jitter-buffer" type="number" placeholder="Jitter Buffer Size (ms, 0-1000, default: 1000)" value="1000" />
+                        <input id="mps-region-hint-ip" type="text" placeholder="Region Hint IP (optional)" title="The IP address of the CDN source station (IPv4). Helps ensure stability of the RTMP stream" />
+                        <input id="mps-idle-timeout" type="number" placeholder="Idle Timeout (seconds, optional)" title="Maximum time (seconds) that the Converter is idle. Idle means all users have left the channel. After exceeding this time, Converter is automatically destroyed" />
+                        <input id="mps-jitter-buffer" type="number" placeholder="Jitter Buffer Size (ms, 0-1000, default: 1000)" value="1000" title="Network delay (ms) from receiver to jitter buffer. Range: 0-1000. Default: 1000. Rounds up to nearest 100. Setting to 0 disables jitter buffer (not recommended)" />
                         
                         <!-- Transcoded Options (hidden by default) -->
                         <div id="mps-transcoded-options" class="hidden space-y-4 border-t border-gray-700 pt-4">
                             <h3 class="text-sm font-semibold text-gray-400">Transcoding Configuration</h3>
                             
                             <div>
-                                <label class="text-sm text-gray-400">Layout Type:</label>
-                                <select id="mps-layout-type">
+                                <label class="text-sm text-gray-400" title="Screen layout type: Custom (set through layout parameter) or Vertical (one user in large window, others in small windows)">Layout Type:</label>
+                                <select id="mps-layout-type" title="Screen layout type: Custom (set through layout parameter) or Vertical (one user in large window, others in small windows)">
                                     <option value="0">Custom Layout</option>
                                     <option value="1">Vertical Layout</option>
                                 </select>
                             </div>
                             
                             <div>
-                                <label class="text-sm text-gray-400">Canvas:</label>
+                                <label class="text-sm text-gray-400" title="Video canvas dimensions and background color">Canvas:</label>
                                 <div class="grid grid-cols-3 gap-2">
-                                    <input id="mps-canvas-width" type="number" placeholder="Width" value="640" />
-                                    <input id="mps-canvas-height" type="number" placeholder="Height" value="360" />
-                                    <input id="mps-canvas-color" type="text" placeholder="Color (hex, optional)" />
+                                    <input id="mps-canvas-width" type="number" placeholder="Width" value="640" title="Canvas width in pixels" />
+                                    <input id="mps-canvas-height" type="number" placeholder="Height" value="360" title="Canvas height in pixels" />
+                                    <input id="mps-canvas-color" type="text" placeholder="Color (hex, optional)" title="Canvas background color as hexadecimal RGB value (e.g., 0x000000 for black)" />
                                 </div>
                             </div>
                             
                             <div>
-                                <label class="text-sm text-gray-400">Video Options:</label>
+                                <label class="text-sm text-gray-400" title="Video encoding options for the transcoded output">Video Options:</label>
                                 <div class="grid grid-cols-2 gap-2">
-                                    <input id="mps-video-bitrate" type="number" placeholder="Bitrate (Kbps, 1-10000)" value="800" />
-                                    <input id="mps-video-framerate" type="number" placeholder="Frame Rate (1-30)" value="15" />
-                                    <input id="mps-video-gop" type="number" placeholder="GOP (optional)" />
-                                    <select id="mps-video-codec">
+                                    <input id="mps-video-bitrate" type="number" placeholder="Bitrate (Kbps, 1-10000)" value="800" title="Encoding bitrate in Kbps. Range: 1-10000" />
+                                    <input id="mps-video-framerate" type="number" placeholder="Frame Rate (1-30)" value="15" title="Encoding frame rate in fps. Range: 1-30. Default: 15" />
+                                    <input id="mps-video-gop" type="number" placeholder="GOP (optional)" title="Group of Pictures (GOP). Default: frameRate * 2" />
+                                    <select id="mps-video-codec" title="Video codec type: H.264 (default) or H.265">
                                         <option value="H.264">H.264</option>
                                         <option value="H.265">H.265</option>
                                     </select>
-                                    <select id="mps-video-codec-profile">
+                                    <select id="mps-video-codec-profile" title="Video codec profile: High (default, high-resolution), Baseline (mobile), or Main (mainstream electronics). H.265 automatically uses Main">
                                         <option value="high">High</option>
                                         <option value="baseline">Baseline</option>
                                         <option value="main">Main</option>
@@ -332,33 +333,33 @@
                             </div>
                             
                             <div>
-                                <label class="text-sm text-gray-400">Audio Options:</label>
+                                <label class="text-sm text-gray-400" title="Audio encoding options for the transcoded output">Audio Options:</label>
                                 <div class="grid grid-cols-2 gap-2">
-                                    <select id="mps-audio-codec-profile">
+                                    <select id="mps-audio-codec-profile" title="Audio codec profile: LC-AAC (Low Complexity) or HE-AAC (High Efficiency)">
                                         <option value="LC-AAC">LC-AAC</option>
                                         <option value="HE-AAC">HE-AAC</option>
                                     </select>
-                                    <input id="mps-audio-sample-rate" type="number" placeholder="Sample Rate" value="48000" />
-                                    <input id="mps-audio-bitrate" type="number" placeholder="Bitrate" value="48" />
-                                    <input id="mps-audio-channels" type="number" placeholder="Channels (1 or 2)" value="1" />
+                                    <input id="mps-audio-sample-rate" type="number" placeholder="Sample Rate" value="48000" title="Audio sample rate in Hz (e.g., 48000)" />
+                                    <input id="mps-audio-bitrate" type="number" placeholder="Bitrate" value="48" title="Audio bitrate in Kbps" />
+                                    <input id="mps-audio-channels" type="number" placeholder="Channels (1 or 2)" value="1" title="Number of audio channels: 1 (mono) or 2 (stereo)" />
                                 </div>
-                                <input id="mps-audio-stream-uids" type="text" placeholder="Audio Stream UIDs (comma-separated, optional)" class="mt-2" />
+                                <input id="mps-audio-stream-uids" type="text" placeholder="Audio Stream UIDs (comma-separated, optional)" class="mt-2" title="Comma-separated list of UIDs whose audio streams will be mixed. If empty, all users' audio in the channel will be mixed" />
                             </div>
                             
                             <div>
-                                <label class="text-sm text-gray-400">Placeholder Image URL (optional):</label>
-                                <input id="mps-placeholder-image" type="text" placeholder="Default placeholder image URL" />
+                                <label class="text-sm text-gray-400" title="Default placeholder image displayed when a user stops publishing video">Placeholder Image URL (optional):</label>
+                                <input id="mps-placeholder-image" type="text" placeholder="Default placeholder image URL" title="Default placeholder image URL displayed when a user stops publishing video. Must be valid image URL with jpg or png suffix" />
                             </div>
                             
                             <div id="mps-vertical-layout-options" class="hidden">
-                                <label class="text-sm text-gray-400">Vertical Layout Options:</label>
+                                <label class="text-sm text-gray-400" title="Options for vertical layout mode">Vertical Layout Options:</label>
                                 <div class="grid grid-cols-2 gap-2">
-                                    <input id="mps-vertical-max-uid" type="number" placeholder="Max Resolution UID" />
-                                    <select id="mps-vertical-fill-mode">
+                                    <input id="mps-vertical-max-uid" type="number" placeholder="Max Resolution UID" title="UID of the user displayed in the large window (left side) in vertical layout" />
+                                    <select id="mps-vertical-fill-mode" title="Fill mode for vertical layout: Fill (scale and crop) or Fit (scale to fit)">
                                         <option value="fill">Fill</option>
                                         <option value="fit">Fit</option>
                                     </select>
-                                    <input id="mps-vertical-refresh" type="number" placeholder="Refresh Interval (seconds)" value="4" />
+                                    <input id="mps-vertical-refresh" type="number" placeholder="Refresh Interval (seconds)" value="4" title="Interval in seconds to refresh the vertical layout" />
                                 </div>
                             </div>
                         </div>
@@ -399,15 +400,15 @@
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Push ID Management</h2>
                     <div class="space-y-3">
                         <div>
-                            <label class="text-sm text-gray-400">Converter ID (auto-filled when created, or enter existing):</label>
+                            <label class="text-sm text-gray-400" title="The unique identifier for the Media Push converter. Auto-filled when created, or enter an existing ID for update/delete operations">Converter ID (auto-filled when created, or enter existing):</label>
                             <div class="flex gap-2">
-                                <input id="mps-converter-id" type="text" placeholder="Converter ID will appear here or enter existing ID" class="flex-1" />
+                                <input id="mps-converter-id" type="text" placeholder="Converter ID will appear here or enter existing ID" class="flex-1" title="The unique identifier for the Media Push converter. Auto-filled when created, or enter an existing ID for update/delete operations" />
                                 <button onclick="copyToClipboard('mps-converter-id')" class="modern-btn modern-btn-secondary" title="Copy ID">Copy</button>
                             </div>
                         </div>
                         <div>
-                            <label class="text-sm text-gray-400">Query Channel (optional, for channel-specific listing):</label>
-                            <input id="mps-query-channel" type="text" placeholder="Channel name (leave empty for all)" />
+                            <label class="text-sm text-gray-400" title="Optional channel name to filter converters. Leave empty to list all converters">Query Channel (optional, for channel-specific listing):</label>
+                            <input id="mps-query-channel" type="text" placeholder="Channel name (leave empty for all)" title="Optional channel name to filter converters. Leave empty to list all converters" />
                         </div>
                         <div id="mps-converter-info" class="mt-4 space-y-2">
                             <p class="text-sm text-gray-400">Converter details will appear here</p>
@@ -433,27 +434,27 @@
                                 <li>Enable Authentication</li>
                                 <li>Set a custom Server Password</li>
                             </ol>
-                            <input id="mg-obs-password" type="password" placeholder="OBS WebSocket Password" class="mt-2" />
-                            <input id="mg-obs-port" type="number" placeholder="OBS WebSocket Port" value="4455" class="mt-2" />
+                            <input id="mg-obs-password" type="password" placeholder="OBS WebSocket Password" class="mt-2" title="The password you set in OBS WebSocket Server Settings" />
+                            <input id="mg-obs-port" type="number" placeholder="OBS WebSocket Port" value="4455" class="mt-2" title="The port number configured in OBS WebSocket Server Settings. Default: 4455" />
                             <div class="grid grid-cols-2 gap-2 mt-2">
-                                <button onclick="connectOBS()" class="modern-btn modern-btn-success">Connect to OBS</button>
-                                <button onclick="disconnectOBS()" class="modern-btn modern-btn-danger">Disconnect</button>
+                                <button onclick="connectOBS()" class="modern-btn modern-btn-success" title="Connect to OBS Studio via WebSocket">Connect to OBS</button>
+                                <button onclick="disconnectOBS()" class="modern-btn modern-btn-danger" title="Disconnect from OBS Studio">Disconnect</button>
                             </div>
                             <div id="mg-obs-status" class="mt-2 text-sm"></div>
                         </div>
-                        <input id="mg-channel" type="text" placeholder="Channel Name" value="testChannel" />
-                        <input id="mg-uid" type="text" placeholder="UID" value="333" />
+                        <input id="mg-channel" type="text" placeholder="Channel Name" value="testChannel" title="The Agora RTC channel name where the stream will be published" />
+                        <input id="mg-uid" type="text" placeholder="UID" value="333" title="The UID of the stream in the RTC channel. Must be unique in the channel" />
                         <div class="flex gap-2">
-                            <input id="mg-token" type="text" placeholder="Token (optional)" class="flex-1" />
+                            <input id="mg-token" type="text" placeholder="Token (optional)" class="flex-1" title="Token for authentication to join the RTC channel. Required for secure channels" />
                             <button onclick="generateToken('mg')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
                         </div>
                         <div>
-                            <label class="text-sm text-gray-400">Expires After (seconds, 0 = never expire):</label>
-                            <input id="mg-expires-after" type="number" placeholder="0" value="0" min="0" />
+                            <label class="text-sm text-gray-400" title="Time in seconds after which the stream key expires. 0 means the stream key never expires">Expires After (seconds, 0 = never expire):</label>
+                            <input id="mg-expires-after" type="number" placeholder="0" value="0" min="0" title="Time in seconds after which the stream key expires. 0 means the stream key never expires" />
                         </div>
                         <div>
-                            <label class="text-sm text-gray-400">Template ID (optional):</label>
-                            <input id="mg-template-id-create" type="text" placeholder="Template ID (optional, e.g., 720p, 1080p)" />
+                            <label class="text-sm text-gray-400" title="Optional template ID to use for stream configuration. Must match an existing template ID">Template ID (optional):</label>
+                            <input id="mg-template-id-create" type="text" placeholder="Template ID (optional, e.g., 720p, 1080p)" title="Optional template ID to use for stream configuration. Must match an existing template ID" />
                         </div>
                         <h3 class="text-lg font-semibold mt-4 mb-2">Streaming Key Operations</h3>
                         <div class="grid grid-cols-2 gap-2">
@@ -469,36 +470,36 @@
                             <button onclick="stopMediaGateway()" class="modern-btn modern-btn-danger">Delete Stream Key</button>
                         </div>
                         <div id="mg-copy-msg" class="text-green-400 text-sm hidden mt-2">Copied to clipboard!</div>
-                        <h3 class="text-lg font-semibold mt-4 mb-2">Flow Configuration Templates</h3>
+                        <h3 class="text-lg font-semibold mt-4 mb-2" title="Flow configuration templates for stream transcoding settings">Flow Configuration Templates</h3>
                         <div class="space-y-3">
-                            <input id="mg-template-id" type="text" placeholder="Template ID (e.g., 720p, 1080p)" />
+                            <input id="mg-template-id" type="text" placeholder="Template ID (e.g., 720p, 1080p)" title="Template ID for the flow configuration. Used to identify and reuse transcoding settings" />
                             
                             <!-- Video Transcoding Settings -->
                             <div class="modern-panel">
                                 <label class="flex items-center gap-2 mb-2">
-                                    <input type="checkbox" id="mg-tmpl-video-enabled" checked />
-                                    <span class="font-semibold">Video Transcoding</span>
+                                    <input type="checkbox" id="mg-tmpl-video-enabled" checked title="Enable video transcoding for this template" />
+                                    <span class="font-semibold" title="Enable video transcoding for this template">Video Transcoding</span>
                                 </label>
                                 <div id="mg-tmpl-video-settings" class="space-y-2 ml-6">
-                                    <label class="text-sm text-gray-400">Video Codec:</label>
-                                    <select id="mg-tmpl-video-codec">
+                                    <label class="text-sm text-gray-400" title="Video codec to use for transcoding">Video Codec:</label>
+                                    <select id="mg-tmpl-video-codec" title="Video codec to use for transcoding">
                                         <option value="H.264">H.264</option>
                                         <option value="H.265">H.265</option>
                                         <option value="VP8">VP8</option>
                                         <option value="VP9">VP9</option>
                                     </select>
                                     <div class="grid grid-cols-2 gap-2">
-                                        <input id="mg-tmpl-video-width" type="number" placeholder="Width" value="1280" min="1" />
-                                        <input id="mg-tmpl-video-height" type="number" placeholder="Height" value="720" min="1" />
-                                        <input id="mg-tmpl-video-fps" type="number" placeholder="FPS" value="24" min="1" max="60" />
-                                        <input id="mg-tmpl-video-bitrate" type="number" placeholder="Bitrate (kbps)" value="2200" min="1" />
+                                        <input id="mg-tmpl-video-width" type="number" placeholder="Width" value="1280" min="1" title="Video width in pixels" />
+                                        <input id="mg-tmpl-video-height" type="number" placeholder="Height" value="720" min="1" title="Video height in pixels" />
+                                        <input id="mg-tmpl-video-fps" type="number" placeholder="FPS" value="24" min="1" max="60" title="Frame rate in frames per second. Range: 1-60" />
+                                        <input id="mg-tmpl-video-bitrate" type="number" placeholder="Bitrate (kbps)" value="2200" min="1" title="Video bitrate in kilobits per second" />
                                     </div>
-                                    <label class="text-sm text-gray-400 mt-2">Simulcast Stream (optional):</label>
+                                    <label class="text-sm text-gray-400 mt-2" title="Optional simulcast stream settings for lower resolution/bitrate stream">Simulcast Stream (optional):</label>
                                     <div class="grid grid-cols-2 gap-2">
-                                        <input id="mg-tmpl-video-sim-width" type="number" placeholder="Sim Width" value="960" min="1" />
-                                        <input id="mg-tmpl-video-sim-height" type="number" placeholder="Sim Height" value="540" min="1" />
-                                        <input id="mg-tmpl-video-sim-fps" type="number" placeholder="Sim FPS" value="24" min="1" max="60" />
-                                        <input id="mg-tmpl-video-sim-bitrate" type="number" placeholder="Sim Bitrate (kbps)" value="1670" min="1" />
+                                        <input id="mg-tmpl-video-sim-width" type="number" placeholder="Sim Width" value="960" min="1" title="Simulcast stream width in pixels" />
+                                        <input id="mg-tmpl-video-sim-height" type="number" placeholder="Sim Height" value="540" min="1" title="Simulcast stream height in pixels" />
+                                        <input id="mg-tmpl-video-sim-fps" type="number" placeholder="Sim FPS" value="24" min="1" max="60" title="Simulcast stream frame rate in fps. Range: 1-60" />
+                                        <input id="mg-tmpl-video-sim-bitrate" type="number" placeholder="Sim Bitrate (kbps)" value="1670" min="1" title="Simulcast stream bitrate in kilobits per second" />
                                     </div>
                                 </div>
                             </div>
@@ -506,12 +507,12 @@
                             <!-- Audio Transcoding Settings -->
                             <div class="modern-panel">
                                 <label class="flex items-center gap-2 mb-2">
-                                    <input type="checkbox" id="mg-tmpl-audio-enabled" />
-                                    <span class="font-semibold">Audio Transcoding</span>
+                                    <input type="checkbox" id="mg-tmpl-audio-enabled" title="Enable audio transcoding for this template" />
+                                    <span class="font-semibold" title="Enable audio transcoding for this template">Audio Transcoding</span>
                                 </label>
                                 <div id="mg-tmpl-audio-settings" class="space-y-2 ml-6">
-                                    <label class="text-sm text-gray-400">Audio Profile:</label>
-                                    <select id="mg-tmpl-audio-profile">
+                                    <label class="text-sm text-gray-400" title="Audio profile defining sample rate, channels, and bitrate">Audio Profile:</label>
+                                    <select id="mg-tmpl-audio-profile" title="Audio profile defining sample rate, channels, and bitrate">
                                         <option value="0">0 - 8kHz sampling, mono, 18 kbps</option>
                                         <option value="1">1 - 16kHz sampling, mono, 24 kbps</option>
                                         <option value="2">2 - 48kHz sampling, mono, 48 kbps</option>
@@ -524,10 +525,10 @@
                             
                             <!-- Jitter Buffer Settings -->
                             <div class="modern-panel">
-                                <label class="font-semibold mb-2 block">Jitter Buffer</label>
+                                <label class="font-semibold mb-2 block" title="Jitter buffer settings to handle network delay and packet loss">Jitter Buffer</label>
                                 <div class="grid grid-cols-2 gap-2">
-                                    <input id="mg-tmpl-jitter-size" type="number" placeholder="Size (ms)" value="500" min="0" max="2000" />
-                                    <input id="mg-tmpl-jitter-max" type="number" placeholder="Max Size (ms)" value="800" min="0" max="2000" />
+                                    <input id="mg-tmpl-jitter-size" type="number" placeholder="Size (ms)" value="500" min="0" max="2000" title="Jitter buffer size in milliseconds. Range: 0-2000" />
+                                    <input id="mg-tmpl-jitter-max" type="number" placeholder="Max Size (ms)" value="800" min="0" max="2000" title="Maximum jitter buffer size in milliseconds. Range: 0-2000" />
                                 </div>
                             </div>
                             
@@ -552,25 +553,25 @@
                             <button onclick="setGlobalMediaGatewayTemplate()" class="modern-btn modern-btn-secondary">Set Global Template</button>
                             </div>
                         </div>
-                        <h3 class="text-lg font-semibold mt-4 mb-2">Streaming Operations</h3>
+                        <h3 class="text-lg font-semibold mt-4 mb-2" title="Operations for managing active streaming sessions">Streaming Operations</h3>
                         <div class="space-y-2">
-                            <input id="mg-stream-id" type="text" placeholder="Stream ID (for query/operations)" />
+                            <input id="mg-stream-id" type="text" placeholder="Stream ID (for query/operations)" title="The stream ID for querying information or performing operations on a specific stream" />
                             <div class="grid grid-cols-2 gap-2">
-                            <button onclick="queryStreamingList()" class="modern-btn modern-btn-primary">Query Streaming List</button>
-                            <button onclick="queryStreamingInformation()" class="modern-btn modern-btn-primary">Query Streaming Info</button>
-                            <button onclick="forceDisconnectStream()" class="modern-btn modern-btn-danger">Force Disconnect</button>
+                            <button onclick="queryStreamingList()" class="modern-btn modern-btn-primary" title="Query the list of all active streaming sessions">Query Streaming List</button>
+                            <button onclick="queryStreamingInformation()" class="modern-btn modern-btn-primary" title="Query detailed information about a specific stream by Stream ID">Query Streaming Info</button>
+                            <button onclick="forceDisconnectStream()" class="modern-btn modern-btn-danger" title="Force disconnect a specific stream by Stream ID">Force Disconnect</button>
                             </div>
                             <div class="modern-panel">
-                                <label class="font-semibold mb-2 block">Mute/Unmute Options</label>
+                                <label class="font-semibold mb-2 block" title="Mute or unmute audio/video for a specific stream">Mute/Unmute Options</label>
                                 <label class="flex items-center gap-2 text-sm">
-                                    <input type="checkbox" id="mg-mute-audio" checked />
-                                    <span>Mute Audio</span>
+                                    <input type="checkbox" id="mg-mute-audio" checked title="Mute the audio stream" />
+                                    <span title="Mute the audio stream">Mute Audio</span>
                                 </label>
                                 <label class="flex items-center gap-2 text-sm">
-                                    <input type="checkbox" id="mg-mute-video" />
-                                    <span>Mute Video</span>
+                                    <input type="checkbox" id="mg-mute-video" title="Mute the video stream" />
+                                    <span title="Mute the video stream">Mute Video</span>
                                 </label>
-                                <button onclick="muteUnmuteStream()" class="modern-btn modern-btn-warning mt-2 w-full">Apply Mute/Unmute</button>
+                                <button onclick="muteUnmuteStream()" class="modern-btn modern-btn-warning mt-2 w-full" title="Apply mute/unmute settings to the stream specified by Stream ID">Apply Mute/Unmute</button>
                             </div>
                         </div>
                     </div>
@@ -587,13 +588,13 @@
                     <h2 class="text-xl font-bold mb-4 gradient-text-primary">Media Gateway ID Management</h2>
                     <div class="space-y-3">
                         <div>
-                            <label class="text-sm text-gray-400">Stream Key (auto-filled when created, or enter existing):</label>
+                            <label class="text-sm text-gray-400" title="The unique stream key for the Media Gateway stream. Auto-filled when created, or enter an existing key for query/update/delete operations">Stream Key (auto-filled when created, or enter existing):</label>
                             <div class="flex gap-2">
-                                <input id="mg-stream-key" type="text" placeholder="Stream Key will appear here or enter existing key" class="flex-1" />
+                                <input id="mg-stream-key" type="text" placeholder="Stream Key will appear here or enter existing key" class="flex-1" title="The unique stream key for the Media Gateway stream. Auto-filled when created, or enter an existing key for query/update/delete operations" />
                                 <button onclick="copyToClipboard('mg-stream-key')" class="modern-btn modern-btn-secondary" title="Copy Key">Copy</button>
                             </div>
                         </div>
-                        <h3 class="text-lg font-semibold mt-4 mb-2">Gateway Status</h3>
+                        <h3 class="text-lg font-semibold mt-4 mb-2" title="Current status and information about the Media Gateway stream">Gateway Status</h3>
                         <div id="mg-status" class="space-y-2">
                             <p class="text-sm text-gray-400">Status will appear here</p>
                         </div>
@@ -610,86 +611,65 @@
                     <div class="space-y-4">
                         <h3 class="text-lg font-semibold">Builder Token (Required)</h3>
                         <div class="flex gap-2">
-                            <input id="ct-builder-token" type="text" placeholder="Builder Token (acquire first)" class="flex-1" />
-                            <button onclick="acquireTranscoding()" class="modern-btn modern-btn-primary">Acquire</button>
+                            <input id="ct-builder-token" type="text" placeholder="Builder Token (acquire first)" class="flex-1" title="Builder token required for creating/updating transcoding tasks. Click 'Acquire' to get a token. Must be used within 2 seconds of acquisition." />
+                            <button onclick="acquireTranscoding()" class="modern-btn modern-btn-primary" title="Acquire a builder token for creating transcoding tasks">Acquire</button>
                         </div>
-                        <input id="ct-instance-id" type="text" placeholder="Instance ID (optional, auto-generated if empty)" />
+                        <input id="ct-instance-id" type="text" placeholder="Instance ID (optional, auto-generated if empty)" title="Optional instance ID for the transcoding task. If empty, a unique ID will be auto-generated" />
                         
                         <div class="flex justify-between items-center mt-4">
-                            <h3 class="text-lg font-semibold">Audio Inputs</h3>
-                            <button onclick="addAudioInput()" class="modern-btn modern-btn-secondary text-sm">+ Add Audio Input</button>
+                            <h3 class="text-lg font-semibold" title="Audio input sources. Supports RTC audio streams and CDN audio streams. Multiple inputs will be mixed">Audio Inputs</h3>
+                            <button onclick="addAudioInput()" class="modern-btn modern-btn-secondary text-sm" title="Add a new audio input source (RTC or CDN)">+ Add Audio Input</button>
                         </div>
                         <div id="ct-audio-inputs-container">
                             <!-- Audio inputs will be added here dynamically -->
                         </div>
                         
                         <div class="flex justify-between items-center mt-4">
-                            <h3 class="text-lg font-semibold">Video Inputs</h3>
-                            <button onclick="addVideoInput()" class="modern-btn modern-btn-secondary text-sm">+ Add Video Input</button>
+                            <h3 class="text-lg font-semibold" title="Video input sources. Supports RTC video streams and CDN video streams. Multiple inputs will be merged on the canvas">Video Inputs</h3>
+                            <button onclick="addVideoInput()" class="modern-btn modern-btn-secondary text-sm" title="Add a new video input source (RTC or CDN)">+ Add Video Input</button>
                         </div>
                         <div id="ct-video-inputs-container">
                             <!-- Video inputs will be added here dynamically -->
                         </div>
                         
-                        <h3 class="text-lg font-semibold mt-4">Output Destination (RTC)</h3>
-                        <input id="ct-output-channel" type="text" placeholder="Output Channel Name (defaults to input)" />
-                        <input id="ct-output-uid" type="text" placeholder="Output UID" value="999" />
-                        <div class="flex gap-2">
-                            <input id="ct-output-token" type="text" placeholder="Output Token (defaults to input)" class="flex-1" />
-                            <button onclick="generateToken('ct-output')" class="modern-btn modern-btn-secondary" title="Generate Token">Generate</button>
+                        <div class="flex justify-between items-center mt-4">
+                            <h3 class="text-lg font-semibold" title="Output destinations for the transcoded stream. Supports publishing to RTC channels or pushing to CDN addresses">Outputs</h3>
+                            <button onclick="addOutput()" class="modern-btn modern-btn-secondary text-sm" title="Add a new output destination (RTC channel or CDN stream)">+ Add Output</button>
+                        </div>
+                        <div id="ct-outputs-container">
+                            <!-- Outputs will be added here dynamically -->
                         </div>
                         
                         <h3 class="text-lg font-semibold mt-4">Transcoder Settings</h3>
                         <label class="text-sm text-gray-400">Stream Process Mode:</label>
-                        <select id="ct-stream-mode">
+                        <select id="ct-stream-mode" title="Working mode of Cloud Transcoder. Mix: merge/mix multiple streams. Heterogeneous Single: single stream with different input/output types. Single: RTC stream relay mode">
                             <option value="mix">Mix (default)</option>
                             <option value="heterogeneous-single">Heterogeneous Single</option>
                             <option value="single">Single (RTC Relay)</option>
                         </select>
-                        <input id="ct-idle-timeout" type="number" placeholder="Idle Timeout (seconds)" value="300" min="1" max="86400" />
+                        <input id="ct-idle-timeout" type="number" placeholder="Idle Timeout (seconds)" value="300" min="1" max="86400" title="Maximum period (seconds) that Cloud Transcoder can be idle. Idle means all hosts have left the channel. If exceeded, transcoder is automatically destroyed. Range: 1-86400. Default: 300" />
                         
                         <h3 class="text-lg font-semibold mt-4">Canvas Settings</h3>
                         <div class="grid grid-cols-2 gap-2">
-                            <input id="ct-canvas-width" type="number" placeholder="Canvas Width" value="1280" min="120" max="3840" />
-                            <input id="ct-canvas-height" type="number" placeholder="Canvas Height" value="720" min="120" max="3840" />
+                            <input id="ct-canvas-width" type="number" placeholder="Canvas Width" value="1280" min="120" max="3840" title="The width of the canvas in pixels. Range: 120-3840" />
+                            <input id="ct-canvas-height" type="number" placeholder="Canvas Height" value="720" min="120" max="3840" title="The height of the canvas in pixels. Range: 120-3840" />
                         </div>
-                        <input id="ct-canvas-color" type="text" placeholder="Canvas Color (decimal RGB, e.g., 0 for black)" value="0" />
-                        <input id="ct-canvas-bg-image" type="text" placeholder="Canvas Background Image URL (optional)" />
+                        <input id="ct-canvas-color" type="text" placeholder="Canvas Color (decimal RGB, e.g., 0 for black)" value="0" title="Background color of the canvas as a decimal RGB value. Range: 0-16777215. Example: 0 = black, 16777215 = white" />
+                        <input id="ct-canvas-bg-image" type="text" placeholder="Canvas Background Image URL (optional)" title="URL of the canvas background image. Must be a valid image URL with jpg or png suffix" />
                         <label class="text-sm text-gray-400">Canvas Fill Mode:</label>
-                        <select id="ct-canvas-fill-mode">
+                        <select id="ct-canvas-fill-mode" title="Fill mode for the canvas background image. FILL: Scale and crop in center maintaining aspect ratio. FIT: Scale to fill display maintaining aspect ratio">
                             <option value="FILL">FILL</option>
                             <option value="FIT">FIT</option>
                         </select>
-                        <input id="ct-placeholder-image" type="text" placeholder="Placeholder Image URL (optional)" />
+                        <input id="ct-placeholder-image" type="text" placeholder="Placeholder Image URL (optional)" title="Default placeholder image URL displayed when a user stops publishing video. Must be a valid image URL with jpg or png suffix" />
                         
-                        <h3 class="text-lg font-semibold mt-4">Video Output Options</h3>
-                        <div class="grid grid-cols-2 gap-2">
-                            <input id="ct-video-width" type="number" placeholder="Video Width" value="1280" min="120" max="3840" />
-                            <input id="ct-video-height" type="number" placeholder="Video Height" value="720" min="120" max="3840" />
+                        <div class="flex justify-between items-center mt-4">
+                            <h3 class="text-lg font-semibold" title="Watermarks to overlay on the canvas. Each watermark can be positioned and sized independently">Watermarks</h3>
+                            <button onclick="addWatermark()" class="modern-btn modern-btn-secondary text-sm" title="Add a new watermark image to overlay on the canvas">+ Add Watermark</button>
                         </div>
-                        <input id="ct-video-bitrate" type="number" placeholder="Video Bitrate (kbps)" value="2200" min="1" max="10000" />
-                        <input id="ct-video-fps" type="number" placeholder="Video FPS" value="30" min="1" max="30" />
-                        <label class="text-sm text-gray-400">Video Codec:</label>
-                        <select id="ct-video-codec">
-                            <option value="H264">H264</option>
-                            <option value="VP8">VP8</option>
-                        </select>
-                        <label class="text-sm text-gray-400">Video Mode (optional, RAW for no transcoding):</label>
-                        <select id="ct-video-mode">
-                            <option value="">None (transcode)</option>
-                            <option value="RAW">RAW (no transcoding)</option>
-                        </select>
-                        
-                        <h3 class="text-lg font-semibold mt-4">Audio Output Options</h3>
-                        <label class="text-sm text-gray-400">Audio Profile:</label>
-                        <select id="ct-audio-profile">
-                            <option value="AUDIO_PROFILE_DEFAULT">Default (48kHz, mono, 64kbps)</option>
-                            <option value="AUDIO_PROFILE_SPEECH_STANDARD">Speech Standard (32kHz, mono, 18kbps)</option>
-                            <option value="AUDIO_PROFILE_MUSIC_STANDARD">Music Standard (48kHz, mono, 64kbps)</option>
-                            <option value="AUDIO_PROFILE_MUSIC_STANDARD_STEREO">Music Standard Stereo (48kHz, stereo, 80kbps)</option>
-                            <option value="AUDIO_PROFILE_MUSIC_HIGH_QUALITY">Music High Quality (48kHz, mono, 96kbps)</option>
-                            <option value="AUDIO_PROFILE_MUSIC_HIGH_QUALITY_STEREO">Music High Quality Stereo (48kHz, stereo, 128kbps)</option>
-                        </select>
+                        <div id="ct-watermarks-container">
+                            <!-- Watermarks will be added here dynamically -->
+                        </div>
                         
                         <h3 class="text-lg font-semibold mt-4 mb-2">Operations</h3>
                         <div class="grid grid-cols-2 gap-2">
@@ -786,7 +766,7 @@
     </div>
 
     <!-- JSON Display Modal -->
-    <div id="jsonDisplayModal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center" style="z-index: 102;">
+    <div id="jsonDisplayModal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center" style="z-index: 10001;">
         <div class="modern-card w-full max-w-4xl mx-4 max-h-[90vh] min-h-[400px] flex flex-col">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-xl font-bold text-white" id="jsonModalTitle">JSON Configuration</h3>
@@ -823,12 +803,12 @@
                 Enter your Agora Customer ID and Secret for authentication.
             </p>
             <div class="space-y-4">
-                <input id="customerId" type="text" placeholder="Customer ID" />
-                <input id="customerSecret" type="password" placeholder="Customer Secret" />
-                <input id="appid" type="text" placeholder="App ID" />
-                <input id="appCertificate" type="password" placeholder="App Certificate (optional, for token generation)" />
-                <label>Region:</label>
-                <select id="region">
+                <input id="customerId" type="text" placeholder="Customer ID" data-tooltip="Your Agora Customer ID. Found in the Agora Console under Account Settings" />
+                <input id="customerSecret" type="password" placeholder="Customer Secret" data-tooltip="Your Agora Customer Secret. Found in the Agora Console under Account Settings. Used for RESTful API authentication" />
+                <input id="appid" type="text" placeholder="App ID" data-tooltip="Your Agora App ID. Found in the Agora Console project settings. Identifies your Agora project" />
+                <input id="appCertificate" type="password" placeholder="App Certificate (optional, for token generation)" data-tooltip="Your Agora App Certificate. Found in the Agora Console project settings. Required for generating RTC tokens for secure channels" />
+                <label data-tooltip="The region where your Agora project is hosted. Select the region that matches your project configuration">Region:</label>
+                <select id="region" data-tooltip="The region where your Agora project is hosted. Select the region that matches your project configuration">
                     <option value="na">North America (na)</option>
                     <option value="eu">Europe (eu)</option>
                     <option value="ap">Asia Pacific (ap)</option>

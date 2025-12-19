@@ -73,6 +73,142 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
+// Tooltip positioning - ensure tooltips appear above elements and aren't clipped
+let tooltipEl = null;
+let tooltipTimeout = null;
+let currentTooltipElement = null;
+const tooltipElements = new WeakSet(); // Track which elements have tooltip listeners
+
+function setupTooltips() {
+    // Create a single tooltip element that we'll reuse
+    if (!tooltipEl) {
+        tooltipEl = document.createElement('div');
+        tooltipEl.id = 'global-tooltip';
+        document.body.appendChild(tooltipEl);
+    }
+    
+    // Add tooltips to elements that don't have them yet
+    document.querySelectorAll('[data-tooltip], [title]').forEach(element => {
+        // Skip if we've already added listeners to this element
+        if (tooltipElements.has(element)) return;
+        
+        // Get tooltip text (prefer data-tooltip over title)
+        const tooltipText = element.getAttribute('data-tooltip') || element.getAttribute('title');
+        if (!tooltipText) return;
+        
+        // Store original title if it exists, then remove it to prevent native browser tooltip
+        const originalTitle = element.getAttribute('title');
+        if (originalTitle) {
+            element.setAttribute('data-original-title', originalTitle);
+            element.removeAttribute('title');
+        }
+        
+        // Also remove title if data-tooltip exists (prevent double tooltips)
+        if (element.getAttribute('data-tooltip') && element.hasAttribute('title')) {
+            element.removeAttribute('title');
+        }
+        
+        // Mark this element as having tooltip listeners
+        tooltipElements.add(element);
+        
+        element.addEventListener('mouseenter', function(e) {
+            // Clear any existing timeout
+            if (tooltipTimeout) {
+                clearTimeout(tooltipTimeout);
+            }
+            
+            currentTooltipElement = this;
+            
+            // Small delay to prevent tooltip flicker
+            tooltipTimeout = setTimeout(() => {
+                if (currentTooltipElement !== this) return;
+                
+                // Get element position relative to viewport FIRST
+                const rect = this.getBoundingClientRect();
+                
+                // Set tooltip text and make it visible (but off-screen) to measure
+                tooltipEl.textContent = tooltipText;
+                tooltipEl.style.position = 'fixed';
+                tooltipEl.style.visibility = 'hidden';
+                tooltipEl.style.display = 'block';
+                tooltipEl.style.left = '-9999px';
+                tooltipEl.style.top = '-9999px';
+                
+                // Force a reflow to get accurate dimensions
+                void tooltipEl.offsetHeight;
+                
+                // Calculate tooltip dimensions
+                const tooltipWidth = tooltipEl.offsetWidth;
+                const tooltipHeight = tooltipEl.offsetHeight;
+                
+                // Position above the element, centered horizontally
+                // getBoundingClientRect() gives viewport coordinates, which work with position: fixed
+                let left = rect.left + (rect.width / 2);
+                let top = rect.top - tooltipHeight - 10;
+                
+                // Adjust if tooltip goes off screen horizontally
+                if (left - tooltipWidth / 2 < 10) {
+                    left = tooltipWidth / 2 + 10;
+                } else if (left + tooltipWidth / 2 > window.innerWidth - 10) {
+                    left = window.innerWidth - tooltipWidth / 2 - 10;
+                }
+                
+                // Adjust if tooltip goes off screen vertically (show below instead)
+                if (top < 10) {
+                    top = rect.bottom + 10;
+                }
+                
+                // Set final position and make visible
+                tooltipEl.style.left = left + 'px';
+                tooltipEl.style.top = top + 'px';
+                tooltipEl.style.transform = 'translateX(-50%)';
+                tooltipEl.style.visibility = 'visible';
+                tooltipEl.style.zIndex = '10001';
+            }, 300); // Small delay to prevent flicker
+        });
+        
+        element.addEventListener('mouseleave', function() {
+            if (tooltipTimeout) {
+                clearTimeout(tooltipTimeout);
+                tooltipTimeout = null;
+            }
+            currentTooltipElement = null;
+            tooltipEl.style.display = 'none';
+        });
+    });
+}
+
+// Initialize tooltips when DOM is ready
+function initTooltips() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupTooltips);
+    } else {
+        setupTooltips();
+    }
+}
+
+initTooltips();
+
+// Re-setup tooltips when new elements are added (for dynamic content)
+const observer = new MutationObserver(function(mutations) {
+    let shouldResetup = false;
+    mutations.forEach(function(mutation) {
+        mutation.addedNodes.forEach(function(node) {
+            if (node.nodeType === 1 && (node.hasAttribute('data-tooltip') || node.hasAttribute('title') || node.querySelector('[data-tooltip], [title]'))) {
+                shouldResetup = true;
+            }
+        });
+    });
+    if (shouldResetup) {
+        setTimeout(setupTooltips, 100);
+    }
+});
+
+observer.observe(document.body, {
+    childList: true,
+    subtree: true
+});
+
 // Auth popup
 function toggleAuthPopup() {
     const popup = document.getElementById("authPopup");
@@ -1788,42 +1924,49 @@ async function muteUnmuteStream() {
 let transcodingBuilderToken = null;
 let audioInputCounter = 0;
 let videoInputCounter = 0;
+let outputCounter = 0;
+let watermarkCounter = 0;
 
-// Initialize with one audio and one video input on page load
+// Initialize with one audio, one video input, and one output on page load
 document.addEventListener('DOMContentLoaded', function() {
     addAudioInput();
     addVideoInput();
+    addOutput();
 });
 
 function addAudioInput() {
     const container = document.getElementById('ct-audio-inputs-container');
-    const inputId = `audio-input-${audioInputCounter}`;
-    const currentCounter = audioInputCounter++;
+    // Count existing audio inputs to determine the number
+    const existingInputs = container.querySelectorAll('[id^="audio-input-"]');
+    const inputNumber = existingInputs.length + 1; // 1-based number for display
+    const inputId = `audio-input-${audioInputCounter++}`; // Still use counter for unique ID
     
     const inputDiv = document.createElement('div');
     inputDiv.id = inputId;
     inputDiv.className = 'border border-gray-700 rounded p-3 mb-2';
     inputDiv.innerHTML = `
         <div class="flex justify-between items-center mb-2">
-            <label class="text-sm font-semibold">Audio Input ${currentCounter + 1}</label>
+            <label class="text-sm font-semibold">Audio Input ${inputNumber}</label>
             <button onclick="removeAudioInput('${inputId}')" class="modern-btn modern-btn-danger text-xs">Remove</button>
         </div>
-        <select class="audio-input-type mb-2" onchange="toggleAudioInputType('${inputId}', this.value)">
+        <select class="audio-input-type mb-2" onchange="toggleAudioInputType('${inputId}', this.value)" data-tooltip="Select the audio input source type: RTC Stream (from Agora RTC channel) or CDN Stream (from external URL)">
             <option value="rtc">RTC Stream</option>
             <option value="cdn">CDN Stream</option>
         </select>
         <div class="audio-rtc-fields">
-            <input type="text" class="audio-channel" placeholder="RTC Channel" value="testChannel" />
-            <input type="number" class="audio-uid" placeholder="RTC UID" value="${1001 + currentCounter}" />
-            <input type="text" class="audio-token" placeholder="RTC Token (optional)" />
+            <input type="text" class="audio-channel" placeholder="RTC Channel" value="testChannel" data-tooltip="The Agora RTC channel name where the audio stream is published" />
+            <input type="number" class="audio-uid" placeholder="RTC UID" value="${1001 + existingInputs.length}" data-tooltip="The UID of the user publishing the audio stream in the RTC channel. Must be a valid number and not 0." />
+            <input type="text" class="audio-token" placeholder="RTC Token (optional)" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Set uid to 0 when generating the token." />
         </div>
         <div class="audio-cdn-fields" style="display: none;">
-            <input type="text" class="audio-stream-url" placeholder="CDN Stream URL" />
-            <input type="number" class="audio-volume" placeholder="Volume (0-200)" value="100" min="0" max="200" />
-            <input type="number" class="audio-repeat" placeholder="Repeat (-1=loop, 1=once)" value="1" />
+            <input type="text" class="audio-stream-url" placeholder="CDN Stream URL" data-tooltip="The URL of the CDN audio source stream" />
+            <input type="number" class="audio-volume" placeholder="Volume (0-200)" value="100" min="0" max="200" data-tooltip="The volume of the audio source stream. Range: 0-200. Default: 100 (original volume)" />
+            <input type="number" class="audio-repeat" placeholder="Repeat (n: play n times, -1: loop, 1: once)" value="1" data-tooltip="Number of times to play the media stream. 1 = play once, -1 = loop infinitely, n = play n times. Cannot be 0." />
         </div>
     `;
     container.appendChild(inputDiv);
+    // Re-initialize tooltips for the new element
+    setTimeout(setupTooltips, 50);
 }
 
 function removeAudioInput(inputId) {
@@ -1846,44 +1989,198 @@ function toggleAudioInputType(inputId, type) {
 
 function addVideoInput() {
     const container = document.getElementById('ct-video-inputs-container');
-    const inputId = `video-input-${videoInputCounter}`;
-    const currentCounter = videoInputCounter++;
+    // Count existing video inputs to determine position and number
+    const existingInputs = container.querySelectorAll('[id^="video-input-"]');
+    const inputIndex = existingInputs.length; // 0-based index for the new input
+    const inputNumber = existingInputs.length + 1; // 1-based number for display
+    const inputId = `video-input-${videoInputCounter++}`; // Still use counter for unique ID
+    
+    // Get dimensions from first input if available, otherwise use defaults
+    let width = 640;
+    let height = 360;
+    if (existingInputs.length > 0) {
+        const firstInput = existingInputs[0];
+        const firstWidth = firstInput.querySelector('.video-width');
+        const firstHeight = firstInput.querySelector('.video-height');
+        if (firstWidth && firstWidth.value) {
+            width = parseInt(firstWidth.value) || 640;
+        }
+        if (firstHeight && firstHeight.value) {
+            height = parseInt(firstHeight.value) || 360;
+        }
+    }
+    
+    // Calculate position based on 2x2 grid layout
+    // Input 1 (index 0): top left (0, 0)
+    // Input 2 (index 1): top right (next to input 1)
+    // Input 3 (index 2): bottom left (below input 1)
+    // Input 4 (index 3): bottom right
+    // Input 5+: default to (0, 0) - user can manually adjust
+    let x = 0;
+    let y = 0;
+    
+    if (inputIndex === 0) {
+        // First input: top left
+        x = 0;
+        y = 0;
+    } else if (inputIndex === 1) {
+        // Second input: top right (next to first input)
+        x = width;
+        y = 0;
+    } else if (inputIndex === 2) {
+        // Third input: bottom left (below first input)
+        x = 0;
+        y = height;
+    } else if (inputIndex === 3) {
+        // Fourth input: bottom right
+        x = width;
+        y = height;
+    }
+    // For inputIndex >= 4, keep default (0, 0)
     
     const inputDiv = document.createElement('div');
     inputDiv.id = inputId;
     inputDiv.className = 'border border-gray-700 rounded p-3 mb-2';
     inputDiv.innerHTML = `
         <div class="flex justify-between items-center mb-2">
-            <label class="text-sm font-semibold">Video Input ${currentCounter + 1}</label>
+            <label class="text-sm font-semibold">Video Input ${inputNumber}</label>
             <button onclick="removeVideoInput('${inputId}')" class="modern-btn modern-btn-danger text-xs">Remove</button>
         </div>
-        <select class="video-input-type mb-2" onchange="toggleVideoInputType('${inputId}', this.value)">
+        <select class="video-input-type mb-2" onchange="toggleVideoInputType('${inputId}', this.value)" data-tooltip="Select the video input source type: RTC Stream (from Agora RTC channel) or CDN Stream (from external URL)">
             <option value="rtc">RTC Stream</option>
             <option value="cdn">CDN Stream</option>
         </select>
         <div class="video-rtc-fields">
-            <input type="text" class="video-channel" placeholder="RTC Channel" value="testChannel" />
-            <input type="number" class="video-uid" placeholder="RTC UID" value="${1001 + currentCounter}" />
-            <input type="text" class="video-token" placeholder="RTC Token (optional)" />
-            <input type="text" class="video-placeholder-url" placeholder="Placeholder Image URL (optional)" />
+            <input type="text" class="video-channel" placeholder="RTC Channel" value="testChannel" data-tooltip="The Agora RTC channel name where the video stream is published" />
+            <input type="number" class="video-uid" placeholder="RTC UID" value="${1001 + existingInputs.length}" data-tooltip="The UID of the user publishing the video stream in the RTC channel. Must be a valid number and not 0." />
+            <input type="text" class="video-token" placeholder="RTC Token (optional)" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Set uid to 0 when generating the token." />
+            <input type="text" class="video-placeholder-url" placeholder="Placeholder Image URL (optional)" data-tooltip="URL of the placeholder image displayed when the user is offline. Must be a valid image URL with jpg or png suffix." />
         </div>
         <div class="video-cdn-fields" style="display: none;">
-            <input type="text" class="video-stream-url" placeholder="CDN Stream URL" />
-            <input type="number" class="video-repeat" placeholder="Repeat (-1=loop, 1=once)" value="1" />
+            <input type="text" class="video-stream-url" placeholder="CDN Stream URL" data-tooltip="The URL of the CDN video source stream" />
+            <input type="number" class="video-repeat" placeholder="Repeat (n: play n times, -1: loop, 1: once)" value="1" data-tooltip="Number of times to play the media stream. 1 = play once, -1 = loop infinitely, n = play n times. Cannot be 0." />
         </div>
         <div class="grid grid-cols-2 gap-2 mt-2">
-            <input type="number" class="video-x" placeholder="X" value="0" min="0" max="3840" />
-            <input type="number" class="video-y" placeholder="Y" value="0" min="0" max="3840" />
-            <input type="number" class="video-width" placeholder="Width" value="640" min="120" max="3840" />
-            <input type="number" class="video-height" placeholder="Height" value="360" min="120" max="3840" />
-            <input type="number" class="video-z-order" placeholder="Z-Order" value="2" min="2" max="100" />
+            <input type="number" class="video-x" placeholder="X" value="${x}" min="0" max="3840" data-tooltip="The x coordinate of the video on the canvas (px). Horizontal displacement of the upper left corner relative to the origin (top-left of canvas)" />
+            <input type="number" class="video-y" placeholder="Y" value="${y}" min="0" max="3840" data-tooltip="The y coordinate of the video on the canvas (px). Vertical displacement of the upper left corner relative to the origin (top-left of canvas)" />
+            <input type="number" class="video-width" placeholder="Width" value="${width}" min="120" max="3840" data-tooltip="The width of the video region on the canvas (px). Range: 120-3840" />
+            <input type="number" class="video-height" placeholder="Height" value="${height}" min="120" max="3840" data-tooltip="The height of the video region on the canvas (px). Range: 120-3840" />
+            <input type="number" class="video-z-order" placeholder="Z-Order" value="2" min="2" max="100" data-tooltip="The layer order of the video on the canvas. 2 represents the layer above the placeholder layer. 100 represents the top layer. Range: 2-100" />
         </div>
     `;
     container.appendChild(inputDiv);
+    // Re-initialize tooltips for the new element
+    setTimeout(setupTooltips, 50);
 }
 
 function removeVideoInput(inputId) {
     document.getElementById(inputId).remove();
+}
+
+function addOutput() {
+    const container = document.getElementById('ct-outputs-container');
+    // Count existing outputs to determine the number
+    const existingOutputs = container.querySelectorAll('[id^="output-"]');
+    const outputNumber = existingOutputs.length + 1; // 1-based number for display
+    const outputId = `output-${outputCounter++}`; // Still use counter for unique ID
+    
+    const outputDiv = document.createElement('div');
+    outputDiv.id = outputId;
+    outputDiv.className = 'border border-gray-700 rounded p-3 mb-2';
+    outputDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+            <label class="text-sm font-semibold">Output ${outputNumber}</label>
+            <button onclick="removeOutput('${outputId}')" class="modern-btn modern-btn-danger text-xs">Remove</button>
+        </div>
+        <select class="output-type mb-2" onchange="toggleOutputType('${outputId}', this.value)" data-tooltip="Select the output destination type: RTC Channel (publish to Agora RTC channel) or CDN Stream (push to external CDN URL)">
+            <option value="rtc">RTC Channel</option>
+            <option value="cdn">CDN Stream</option>
+        </select>
+        <div class="output-rtc-fields">
+            <input type="text" class="output-channel" placeholder="RTC Channel" value="testChannel" data-tooltip="The Agora RTC channel name where the transcoded audio and video will be published" />
+            <input type="number" class="output-uid" placeholder="RTC UID" value="${999 + existingOutputs.length}" data-tooltip="The UID of the RTC channel for the transcoded streams. Must be different from other users in the channel. Use this UID when generating the token." />
+            <div class="flex gap-2">
+                <input type="text" class="output-token flex-1" placeholder="RTC Token (required)" data-tooltip="Token for authentication to join the output RTC channel. Required for secure channels. Use the output UID when generating this token." />
+                <button onclick="generateTokenForOutput('${outputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC token for this output using the configured UID and channel name">Generate</button>
+            </div>
+        </div>
+        <div class="output-cdn-fields" style="display: none;">
+            <input type="text" class="output-stream-url" placeholder="CDN Stream URL (required)" data-tooltip="The CDN streaming address where the transcoded stream will be pushed" />
+        </div>
+        <h4 class="text-sm font-semibold mt-3 mb-2">Audio Options</h4>
+        <label class="text-sm text-gray-400">Audio Profile:</label>
+        <select class="output-audio-profile" data-tooltip="Audio properties of the transcoded output. Select the profile that best matches your use case">
+            <option value="AUDIO_PROFILE_DEFAULT">Default (48kHz, mono, 64kbps)</option>
+            <option value="AUDIO_PROFILE_SPEECH_STANDARD">Speech Standard (32kHz, mono, 18kbps)</option>
+            <option value="AUDIO_PROFILE_MUSIC_STANDARD">Music Standard (48kHz, mono, 64kbps)</option>
+            <option value="AUDIO_PROFILE_MUSIC_STANDARD_STEREO">Music Standard Stereo (48kHz, stereo, 80kbps)</option>
+            <option value="AUDIO_PROFILE_MUSIC_HIGH_QUALITY">Music High Quality (48kHz, mono, 96kbps)</option>
+            <option value="AUDIO_PROFILE_MUSIC_HIGH_QUALITY_STEREO">Music High Quality Stereo (48kHz, stereo, 128kbps)</option>
+        </select>
+        <h4 class="text-sm font-semibold mt-3 mb-2">Video Options</h4>
+        <div class="grid grid-cols-2 gap-2">
+            <input type="number" class="output-video-width" placeholder="Video Width" value="1280" min="120" max="3840" data-tooltip="The width of the transcoded output video in pixels. Range: 120-3840" />
+            <input type="number" class="output-video-height" placeholder="Video Height" value="720" min="120" max="3840" data-tooltip="The height of the transcoded output video in pixels. Range: 120-3840" />
+        </div>
+        <input type="number" class="output-video-bitrate" placeholder="Video Bitrate (kbps)" value="2200" min="1" max="10000" data-tooltip="The bitrate of the transcoded output video in kilobits per second. Range: 1-10000" />
+        <input type="number" class="output-video-fps" placeholder="Video FPS" value="30" min="1" max="30" data-tooltip="The frame rate (frames per second) of the transcoded output video. Range: 1-30. Default: 15" />
+        <label class="text-sm text-gray-400">Video Codec:</label>
+        <select class="output-video-codec" data-tooltip="The codec used to transcode the output video. H264 is standard, VP8 is alternative">
+            <option value="H264">H264</option>
+            <option value="VP8">VP8</option>
+        </select>
+        <label class="text-sm text-gray-400">Video Mode (optional, RAW for no transcoding):</label>
+        <select class="output-video-mode" data-tooltip="Set to RAW to output video without transcoding (encoding format unchanged). In RAW mode, only 1 video input is allowed">
+            <option value="">None (transcode)</option>
+            <option value="RAW">RAW (no transcoding)</option>
+        </select>
+    `;
+    container.appendChild(outputDiv);
+    // Re-initialize tooltips for the new element
+    setTimeout(setupTooltips, 50);
+}
+
+function removeOutput(outputId) {
+    document.getElementById(outputId).remove();
+}
+
+function toggleOutputType(outputId, type) {
+    const outputDiv = document.getElementById(outputId);
+    const rtcFields = outputDiv.querySelector('.output-rtc-fields');
+    const cdnFields = outputDiv.querySelector('.output-cdn-fields');
+    
+    if (type === 'rtc') {
+        rtcFields.style.display = 'block';
+        cdnFields.style.display = 'none';
+    } else {
+        rtcFields.style.display = 'none';
+        cdnFields.style.display = 'block';
+    }
+}
+
+function generateTokenForOutput(outputId) {
+    const outputDiv = document.getElementById(outputId);
+    const channelInput = outputDiv.querySelector('.output-channel');
+    const uidInput = outputDiv.querySelector('.output-uid');
+    const tokenInput = outputDiv.querySelector('.output-token');
+    
+    if (!channelInput || !channelInput.value) {
+        showPopup("Please enter a channel name first");
+        return;
+    }
+    
+    const channel = channelInput.value;
+    const uid = parseInt(uidInput.value) || 999;
+    
+    try {
+        const token = generateRtcToken(channel, uid);
+        if (tokenInput) {
+            tokenInput.value = token;
+            showPopup("Token generated successfully!");
+        }
+    } catch (error) {
+        showPopup(`Error generating token: ${error.message}`);
+    }
 }
 
 function toggleVideoInputType(inputId, type) {
@@ -1898,6 +2195,70 @@ function toggleVideoInputType(inputId, type) {
         rtcFields.style.display = 'none';
         cdnFields.style.display = 'block';
     }
+}
+
+function addWatermark() {
+    const container = document.getElementById('ct-watermarks-container');
+    // Count existing watermarks to determine the number
+    const existingWatermarks = container.querySelectorAll('[id^="watermark-"]');
+    const watermarkNumber = existingWatermarks.length + 1; // 1-based number for display
+    const watermarkId = `watermark-${watermarkCounter++}`; // Still use counter for unique ID
+    
+    const watermarkDiv = document.createElement('div');
+    watermarkDiv.id = watermarkId;
+    watermarkDiv.className = 'border border-gray-700 rounded p-3 mb-2';
+    watermarkDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+            <label class="text-sm font-semibold">Watermark ${watermarkNumber}</label>
+            <button onclick="removeWatermark('${watermarkId}')" class="modern-btn modern-btn-danger text-xs">Remove</button>
+        </div>
+        <input type="text" class="watermark-image-url" placeholder="Watermark Image URL (required, jpg/png)" data-tooltip="The URL of the watermark image. Must be a valid URL with jpg or png suffix" />
+        <div class="grid grid-cols-2 gap-2 mt-2">
+            <input type="number" class="watermark-x" placeholder="X" value="0" min="0" max="3840" data-tooltip="The x coordinate of the watermark on the canvas (px). Horizontal displacement of the upper left corner relative to the origin" />
+            <input type="number" class="watermark-y" placeholder="Y" value="0" min="0" max="3840" data-tooltip="The y coordinate of the watermark on the canvas (px). Vertical displacement of the upper left corner relative to the origin" />
+            <input type="number" class="watermark-width" placeholder="Width" value="120" min="120" max="3840" data-tooltip="The width of the watermark in pixels. Range: 120-3840" />
+            <input type="number" class="watermark-height" placeholder="Height" value="120" min="120" max="3840" data-tooltip="The height of the watermark in pixels. Range: 120-3840" />
+            <input type="number" class="watermark-z-order" placeholder="Z-Order" value="50" min="0" max="100" data-tooltip="The layer order of the watermark. 0 represents the bottom layer. 100 represents the top layer. Range: 0-100" />
+        </div>
+        <label class="text-sm text-gray-400 mt-2">Fill Mode:</label>
+        <select class="watermark-fill-mode" data-tooltip="Watermark fill mode. FILL: Scale and crop in center maintaining aspect ratio. FIT: Scale to fill display maintaining aspect ratio">
+            <option value="FILL">FILL</option>
+            <option value="FIT">FIT</option>
+        </select>
+    `;
+    container.appendChild(watermarkDiv);
+    // Re-initialize tooltips for the new element
+    setTimeout(setupTooltips, 50);
+}
+
+function removeWatermark(watermarkId) {
+    document.getElementById(watermarkId).remove();
+}
+
+function collectWatermarks() {
+    const container = document.getElementById('ct-watermarks-container');
+    const watermarkDivs = container.querySelectorAll('[id^="watermark-"]');
+    const watermarks = [];
+    
+    watermarkDivs.forEach(div => {
+        const imageUrl = div.querySelector('.watermark-image-url').value;
+        const x = parseInt(div.querySelector('.watermark-x').value) || 0;
+        const y = parseInt(div.querySelector('.watermark-y').value) || 0;
+        const width = parseInt(div.querySelector('.watermark-width').value) || 120;
+        const height = parseInt(div.querySelector('.watermark-height').value) || 120;
+        const zOrder = parseInt(div.querySelector('.watermark-z-order').value) || 50;
+        const fillMode = div.querySelector('.watermark-fill-mode').value || "FILL";
+        
+        if (imageUrl) {
+            watermarks.push({
+                imageUrl: imageUrl,
+                region: { x, y, width, height, zOrder },
+                fillMode: fillMode
+            });
+        }
+    });
+    
+    return watermarks;
 }
 
 function collectAudioInputs() {
@@ -1918,10 +2279,10 @@ function collectAudioInputs() {
                 const rtcInput = {
                     rtc: {
                         rtcChannel: channel,
-                        rtcUid: uid
+                        rtcUid: uid,
+                        rtcToken: token || ""  // Always include rtcToken, even if empty
                     }
                 };
-                if (token) rtcInput.rtc.rtcToken = token;
                 audioInputs.push(rtcInput);
             }
         } else {
@@ -1966,11 +2327,11 @@ function collectVideoInputs() {
                 const videoInput = {
                     rtc: {
                         rtcChannel: channel,
-                        rtcUid: uid
+                        rtcUid: uid,
+                        rtcToken: token || ""  // Always include rtcToken, even if empty
                     },
                     region: { x, y, width, height, zOrder }
                 };
-                if (token) videoInput.rtc.rtcToken = token;
                 if (placeholderUrl) videoInput.placeholderImageUrl = placeholderUrl;
                 videoInputs.push(videoInput);
             }
@@ -1989,6 +2350,78 @@ function collectVideoInputs() {
     });
     
     return videoInputs;
+}
+
+function collectOutputs() {
+    const container = document.getElementById('ct-outputs-container');
+    const outputDivs = container.querySelectorAll('[id^="output-"]');
+    const outputs = [];
+    
+    outputDivs.forEach(div => {
+        const type = div.querySelector('.output-type').value;
+        const audioProfile = div.querySelector('.output-audio-profile').value || "AUDIO_PROFILE_DEFAULT";
+        const videoWidth = parseInt(div.querySelector('.output-video-width').value) || 1280;
+        const videoHeight = parseInt(div.querySelector('.output-video-height').value) || 720;
+        const videoBitrate = parseInt(div.querySelector('.output-video-bitrate').value) || 2200;
+        const videoFps = parseInt(div.querySelector('.output-video-fps').value) || 30;
+        const videoCodec = div.querySelector('.output-video-codec').value || "H264";
+        const videoMode = div.querySelector('.output-video-mode').value || null;
+        
+        if (type === 'rtc') {
+            const channel = div.querySelector('.output-channel').value;
+            const uid = parseInt(div.querySelector('.output-uid').value);
+            const token = div.querySelector('.output-token').value;
+            
+            // Validate: channel must exist, UID must be a valid number and not 0
+            if (channel && !isNaN(uid) && uid !== 0) {
+                const output = {
+                    rtc: {
+                        rtcChannel: channel,
+                        rtcUid: uid,
+                        rtcToken: token || ""  // Always include rtcToken, even if empty
+                    },
+                    audioOption: {
+                        profileType: audioProfile
+                    },
+                    videoOption: {
+                        width: videoWidth,
+                        height: videoHeight,
+                        bitrate: videoBitrate,
+                        codec: videoCodec,
+                        fps: videoFps
+                    }
+                };
+                if (videoMode) {
+                    output.videoOption.mode = videoMode;
+                }
+                outputs.push(output);
+            }
+        } else {
+            const streamUrl = div.querySelector('.output-stream-url').value;
+            
+            if (streamUrl) {
+                const output = {
+                    streamUrl: streamUrl,
+                    audioOption: {
+                        profileType: audioProfile
+                    },
+                    videoOption: {
+                        width: videoWidth,
+                        height: videoHeight,
+                        bitrate: videoBitrate,
+                        codec: videoCodec,
+                        fps: videoFps
+                    }
+                };
+                if (videoMode) {
+                    output.videoOption.mode = videoMode;
+                }
+                outputs.push(output);
+            }
+        }
+    });
+    
+    return outputs;
 }
 
 async function acquireTranscoding() {
@@ -2062,45 +2495,21 @@ async function acquireTranscoding() {
         body.services.cloudTranscoder.config.transcoder.canvas.fillMode = canvasFillMode;
     }
     
-    // Outputs - MUST be included for hash to match
-    const outputChannel = document.getElementById("ct-output-channel").value;
-    const outputUid = document.getElementById("ct-output-uid").value || "999";
-    const outputToken = document.getElementById("ct-output-token").value;
-    const videoWidth = parseInt(document.getElementById("ct-video-width").value) || 1280;
-    const videoHeight = parseInt(document.getElementById("ct-video-height").value) || 720;
-    const videoBitrate = parseInt(document.getElementById("ct-video-bitrate").value) || 2200;
-    const videoFps = parseInt(document.getElementById("ct-video-fps").value) || 30;
-    const videoCodec = document.getElementById("ct-video-codec").value || "H264";
-    const videoMode = document.getElementById("ct-video-mode").value || null;
-    const audioProfile = document.getElementById("ct-audio-profile").value || "AUDIO_PROFILE_DEFAULT";
+    // Collect watermarks
+    const watermarks = collectWatermarks();
+    if (watermarks.length > 0) {
+        body.services.cloudTranscoder.config.transcoder.watermarks = watermarks;
+    }
     
-    if (!outputChannel) {
-        showPopup("Output Channel is required");
+    // Collect outputs
+    const outputs = collectOutputs();
+    
+    if (outputs.length === 0) {
+        showPopup("At least one output is required");
         return;
     }
     
-    const outputRtc = {
-        rtcChannel: outputChannel,
-        rtcUid: parseInt(outputUid) || 999
-    };
-    if (outputToken) outputRtc.rtcToken = outputToken;
-    const output = {
-        rtc: outputRtc,
-        audioOption: {
-            profileType: audioProfile
-        },
-        videoOption: {
-            width: videoWidth,
-            height: videoHeight,
-            bitrate: videoBitrate,
-            codec: videoCodec,
-            fps: videoFps
-        }
-    };
-    if (videoMode) {
-        output.videoOption.mode = videoMode;
-    }
-    body.services.cloudTranscoder.config.transcoder.outputs = [output];
+    body.services.cloudTranscoder.config.transcoder.outputs = outputs;
     
     try {
         const response = await proxyFetch(`https://api.sd-rtn.com/v1/projects/${appid}/rtsc/cloud-transcoder/builderTokens`, {
@@ -2160,13 +2569,11 @@ async function createTranscoding() {
         return;
     }
     
-    // Get output settings
-    const outputChannel = document.getElementById("ct-output-channel").value;
-    const outputUid = document.getElementById("ct-output-uid").value || "999";
-    const outputToken = document.getElementById("ct-output-token").value;
+    // Collect outputs
+    const outputs = collectOutputs();
     
-    if (!outputChannel) {
-        showPopup("Output Channel Name is required");
+    if (outputs.length === 0) {
+        showPopup("At least one output is required");
         return;
     }
     
@@ -2182,17 +2589,6 @@ async function createTranscoding() {
     const canvasColor = document.getElementById("ct-canvas-color").value || "0";
     const canvasBgImage = document.getElementById("ct-canvas-bg-image").value || null;
     const canvasFillMode = document.getElementById("ct-canvas-fill-mode").value || "FILL";
-    
-    // Get video option settings
-    const videoWidth = parseInt(document.getElementById("ct-video-width").value) || 1280;
-    const videoHeight = parseInt(document.getElementById("ct-video-height").value) || 720;
-    const videoBitrate = parseInt(document.getElementById("ct-video-bitrate").value) || 2200;
-    const videoFps = parseInt(document.getElementById("ct-video-fps").value) || 30;
-    const videoCodec = document.getElementById("ct-video-codec").value || "H264";
-    const videoMode = document.getElementById("ct-video-mode").value || null;
-    
-    // Get audio option settings
-    const audioProfile = document.getElementById("ct-audio-profile").value || "AUDIO_PROFILE_DEFAULT";
     
     const responseEl = document.getElementById("ct-response");
     responseEl.textContent = "Creating transcoding task...";
@@ -2238,30 +2634,14 @@ async function createTranscoding() {
         body.services.cloudTranscoder.config.transcoder.canvas.fillMode = canvasFillMode;
     }
     
-    // Build outputs - rtcToken is optional (only include if provided)
-    const outputRtc = {
-        rtcChannel: outputChannel,
-        rtcUid: parseInt(outputUid) || 999
-    };
-    if (outputToken) outputRtc.rtcToken = outputToken;
-    
-    const output = {
-        rtc: outputRtc,
-        audioOption: {
-            profileType: audioProfile
-        },
-        videoOption: {
-            width: videoWidth,
-            height: videoHeight,
-            bitrate: videoBitrate,
-            codec: videoCodec,
-            fps: videoFps
-        }
-    };
-    if (videoMode) {
-        output.videoOption.mode = videoMode;
+    // Collect watermarks
+    const watermarks = collectWatermarks();
+    if (watermarks.length > 0) {
+        body.services.cloudTranscoder.config.transcoder.watermarks = watermarks;
     }
-    body.services.cloudTranscoder.config.transcoder.outputs = [output];
+    
+    // Use outputs collected earlier (already validated)
+    body.services.cloudTranscoder.config.transcoder.outputs = outputs;
     
     try {
         const url = `https://api.sd-rtn.com/v1/projects/${appid}/rtsc/cloud-transcoder/tasks?builderToken=${encodeURIComponent(builderToken)}`;
@@ -2382,13 +2762,11 @@ async function updateTranscoding() {
         return;
     }
     
-    // Get output settings
-    const outputChannel = document.getElementById("ct-output-channel").value;
-    const outputUid = document.getElementById("ct-output-uid").value || "999";
-    const outputToken = document.getElementById("ct-output-token").value;
+    // Collect outputs
+    const outputs = collectOutputs();
     
-    if (!outputChannel) {
-        showPopup("Output Channel is required for Update");
+    if (outputs.length === 0) {
+        showPopup("At least one output is required");
         return;
     }
     
@@ -2399,13 +2777,6 @@ async function updateTranscoding() {
     const canvasColor = document.getElementById("ct-canvas-color").value || "0";
     const canvasBgImage = document.getElementById("ct-canvas-bg-image").value || null;
     const canvasFillMode = document.getElementById("ct-canvas-fill-mode").value || "FILL";
-    const videoWidth = parseInt(document.getElementById("ct-video-width").value) || 1280;
-    const videoHeight = parseInt(document.getElementById("ct-video-height").value) || 720;
-    const videoBitrate = parseInt(document.getElementById("ct-video-bitrate").value) || 2200;
-    const videoFps = parseInt(document.getElementById("ct-video-fps").value) || 30;
-    const videoCodec = document.getElementById("ct-video-codec").value || "H264";
-    const videoMode = document.getElementById("ct-video-mode").value || null;
-    const audioProfile = document.getElementById("ct-audio-profile").value || "AUDIO_PROFILE_DEFAULT";
     
     const responseEl = document.getElementById("ct-response");
     responseEl.textContent = "Updating transcoding task...";
@@ -2449,30 +2820,14 @@ async function updateTranscoding() {
         body.services.cloudTranscoder.config.transcoder.canvas.fillMode = canvasFillMode;
     }
     
-    // Build outputs - rtcToken is optional (only include if provided)
-    const outputRtc = {
-        rtcChannel: outputChannel,
-        rtcUid: parseInt(outputUid) || 999
-    };
-    if (outputToken) outputRtc.rtcToken = outputToken;
-    
-    const output = {
-        rtc: outputRtc,
-        audioOption: {
-            profileType: audioProfile
-        },
-        videoOption: {
-            width: videoWidth,
-            height: videoHeight,
-            bitrate: videoBitrate,
-            codec: videoCodec,
-            fps: videoFps
-        }
-    };
-    if (videoMode) {
-        output.videoOption.mode = videoMode;
+    // Collect watermarks
+    const watermarks = collectWatermarks();
+    if (watermarks.length > 0) {
+        body.services.cloudTranscoder.config.transcoder.watermarks = watermarks;
     }
-    body.services.cloudTranscoder.config.transcoder.outputs = [output];
+    
+    // Use outputs collected earlier
+    body.services.cloudTranscoder.config.transcoder.outputs = outputs;
     
     try {
         const url = `https://api.sd-rtn.com/v1/projects/${appid}/rtsc/cloud-transcoder/tasks/${idInput}?builderToken=${encodeURIComponent(builderToken)}&sequenceId=${sequenceId}&updateMask=${encodeURIComponent(updateMask)}`;
@@ -3352,6 +3707,8 @@ function showJSONModal(title, jsonObject) {
         jsonModalTitle.textContent = title;
         jsonModalContent.textContent = JSON.stringify(jsonObject, null, 2);
         jsonModal.classList.remove('hidden');
+        // Prevent body scroll when modal is open
+        document.body.style.overflow = 'hidden';
     }
 }
 
@@ -3368,9 +3725,7 @@ function copyCTCreateJSON() {
     try {
         const audioInputs = collectAudioInputs();
         const videoInputs = collectVideoInputs();
-        const outputChannel = document.getElementById("ct-output-channel").value;
-        const outputUid = document.getElementById("ct-output-uid").value || "999";
-        const outputToken = document.getElementById("ct-output-token").value;
+        const outputs = collectOutputs();
         const streamProcessMode = document.getElementById("ct-stream-mode").value || "mix";
         const idleTimeout = parseInt(document.getElementById("ct-idle-timeout").value) || 300;
         const canvasWidth = parseInt(document.getElementById("ct-canvas-width").value) || 1280;
@@ -3378,13 +3733,6 @@ function copyCTCreateJSON() {
         const canvasColor = document.getElementById("ct-canvas-color").value || "0";
         const canvasBgImage = document.getElementById("ct-canvas-bg-image").value || null;
         const canvasFillMode = document.getElementById("ct-canvas-fill-mode").value || "FILL";
-        const videoWidth = parseInt(document.getElementById("ct-video-width").value) || 1280;
-        const videoHeight = parseInt(document.getElementById("ct-video-height").value) || 720;
-        const videoBitrate = parseInt(document.getElementById("ct-video-bitrate").value) || 2200;
-        const videoFps = parseInt(document.getElementById("ct-video-fps").value) || 30;
-        const videoCodec = document.getElementById("ct-video-codec").value || "H264";
-        const videoMode = document.getElementById("ct-video-mode").value || null;
-        const audioProfile = document.getElementById("ct-audio-profile").value || "AUDIO_PROFILE_DEFAULT";
         
         const body = {
             services: {
@@ -3421,25 +3769,13 @@ function copyCTCreateJSON() {
             body.services.cloudTranscoder.config.transcoder.canvas.fillMode = canvasFillMode;
         }
         
-        const outputRtc = {
-            rtcChannel: outputChannel,
-            rtcUid: parseInt(outputUid) || 999
-        };
-        if (outputToken) outputRtc.rtcToken = outputToken;
+        // Collect watermarks
+        const watermarks = collectWatermarks();
+        if (watermarks.length > 0) {
+            body.services.cloudTranscoder.config.transcoder.watermarks = watermarks;
+        }
         
-        const output = {
-            rtc: outputRtc,
-            audioOption: { profileType: audioProfile },
-            videoOption: {
-                width: videoWidth,
-                height: videoHeight,
-                bitrate: videoBitrate,
-                codec: videoCodec,
-                fps: videoFps
-            }
-        };
-        if (videoMode) output.videoOption.mode = videoMode;
-        body.services.cloudTranscoder.config.transcoder.outputs = [output];
+        body.services.cloudTranscoder.config.transcoder.outputs = outputs;
         
         showJSONModal('Cloud Transcoding Create Task JSON', body);
     } catch (error) {
@@ -3588,6 +3924,16 @@ function copyMGUpdateTemplateJSON() {
     copyMGCreateTemplateJSON();
 }
 
+// Function to close JSON modal and restore body scroll
+function closeJSONModal() {
+    const jsonModal = document.getElementById('jsonDisplayModal');
+    if (jsonModal) {
+        jsonModal.classList.add('hidden');
+        // Restore body scroll when modal is closed
+        document.body.style.overflow = '';
+    }
+}
+
 // JSON Modal event handlers
 document.addEventListener('DOMContentLoaded', function() {
     const jsonModal = document.getElementById('jsonDisplayModal');
@@ -3598,14 +3944,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close modal when clicking the X button
     if (closeJsonModal) {
         closeJsonModal.addEventListener('click', function() {
-            jsonModal.classList.add('hidden');
+            closeJSONModal();
         });
     }
     
     // Close modal when clicking the Close button
     if (closeJsonModalBtn) {
         closeJsonModalBtn.addEventListener('click', function() {
-            jsonModal.classList.add('hidden');
+            closeJSONModal();
         });
     }
     
@@ -3624,7 +3970,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (jsonModal) {
         jsonModal.addEventListener('click', function(e) {
             if (e.target === this) {
-                this.classList.add('hidden');
+                closeJSONModal();
             }
         });
     }
