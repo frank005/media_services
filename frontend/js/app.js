@@ -1178,67 +1178,1486 @@ async function deleteMediaPush() {
 // MEDIA GATEWAY
 // ============================================
 
+// Store pending OBS WebSocket requests
+const obsPendingRequests = new Map();
+
+// Helper function to compute OBS WebSocket v5 authentication
+async function computeOBSAuth(password, salt, challenge) {
+    // Step 1: secret = Base64( SHA256(password + salt) )
+    const passwordSalt = password + salt;
+    const passwordSaltBytes = new TextEncoder().encode(passwordSalt);
+    const passwordSaltHash = await crypto.subtle.digest('SHA-256', passwordSaltBytes);
+    const secret = btoa(String.fromCharCode(...new Uint8Array(passwordSaltHash)));
+    
+    // Step 2: auth = Base64( SHA256(secret + challenge) )
+    const secretChallenge = secret + challenge;
+    const secretChallengeBytes = new TextEncoder().encode(secretChallenge);
+    const secretChallengeHash = await crypto.subtle.digest('SHA-256', secretChallengeBytes);
+    const auth = btoa(String.fromCharCode(...new Uint8Array(secretChallengeHash)));
+    
+    return auth;
+}
+
 async function connectOBS() {
-    const password = document.getElementById("mg-obs-password").value;
-    const port = document.getElementById("mg-obs-port").value || 4455;
+    // Close any existing connection first
+    if (obsWebSocket && obsWebSocket.readyState === WebSocket.OPEN) {
+        console.log("Closing existing OBS connection...");
+        obsWebSocket.close(1000, "Reconnecting");
+        obsWebSocket = null;
+        // Wait a bit for the connection to close
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Get password from panel first, then fall back to Media Gateway section, then localStorage
+    const panelPasswordEl = document.getElementById("obs-panel-password");
+    const mgPasswordEl = document.getElementById("mg-obs-password");
+    const password = panelPasswordEl?.value || mgPasswordEl?.value || localStorage.getItem("obsWebSocketPassword") || "";
+    
+    // Get host and port from advanced settings or use defaults
+    const host = document.getElementById("mg-obs-host")?.value || "127.0.0.1";
+    const port = document.getElementById("mg-obs-port")?.value || 4455;
     
     if (!password) {
         showPopup("OBS WebSocket Password is required");
         return;
     }
     
+    // Save password to localStorage for future use
+    localStorage.setItem("obsWebSocketPassword", password);
+    
+    // Sync password to panel if it exists
+    const panelPassword = document.getElementById("obs-panel-password");
+    if (panelPassword) {
+        panelPassword.value = password;
+    }
+    
     const statusEl = document.getElementById("mg-obs-status");
+    const connectionStatusEl = document.getElementById("mg-obs-connection-status");
     statusEl.textContent = "Connecting to OBS...";
+    if (connectionStatusEl) connectionStatusEl.textContent = "";
+    
+    // Update panel status
+    const panelStatus = document.getElementById("obs-panel-status");
+    if (panelStatus) {
+        panelStatus.innerHTML = '<span class="text-blue-400">Connecting...</span>';
+    }
     
     try {
         // Using OBS WebSocket 5.x protocol
-        const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+        const ws = new WebSocket(`ws://${host}:${port}`);
         
         ws.onopen = () => {
-            // Authenticate
-            ws.send(JSON.stringify({
-                op: 1,
-                d: {
-                    rpcVersion: 1,
-                    authentication: password
-                }
-            }));
+            statusEl.textContent = "WebSocket opened, waiting for Hello...";
         };
         
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.op === 2) { // Hello
-                statusEl.innerHTML = '<span class="text-green-400">✓ Identified to OBS</span>';
-            } else if (data.op === 5) { // Event
-                if (data.d && data.d.eventType === "ConnectionOpened") {
-                    statusEl.innerHTML = '<span class="text-green-400">✓ Connected to OBS</span>';
+        ws.onmessage = async (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.op === 0) {
+                    // Hello message - contains authentication challenge
+                    statusEl.textContent = "Received Hello, authenticating...";
+                    
+                    const helloData = data.d;
+                    const rpcVersion = helloData.rpcVersion || 1;
+                    
+                    // Check if authentication is required
+                    if (helloData.authentication) {
+                        const challenge = helloData.authentication.challenge;
+                        const salt = helloData.authentication.salt;
+                        
+                        // Compute authentication hash
+                        const auth = await computeOBSAuth(password, salt, challenge);
+                        
+                        // Send Identify message with authentication
+                        ws.send(JSON.stringify({
+                            op: 1,
+                            d: {
+                                rpcVersion: rpcVersion,
+                                authentication: auth
+                            }
+                        }));
+                    } else {
+                        // No authentication required
+                        ws.send(JSON.stringify({
+                            op: 1,
+                            d: {
+                                rpcVersion: rpcVersion
+                            }
+                        }));
+                    }
+                } else if (data.op === 2) {
+                    // Identified - authentication successful
+                    // Set the WebSocket reference immediately so disconnect works
                     obsWebSocket = ws;
-                    showPopup("Connected to OBS successfully!");
+                    // Only update the main status element to avoid duplicate messages
+                    statusEl.innerHTML = '<span class="text-green-400">✓ Identified to OBS</span>';
+                    // Clear connection status or leave it empty until ConnectionOpened
+                    if (connectionStatusEl) {
+                        connectionStatusEl.textContent = "";
+                    }
+                    
+                    // Update panel status
+                    const panelStatus = document.getElementById("obs-panel-status");
+                    if (panelStatus) {
+                        panelStatus.innerHTML = '<span class="text-green-400">✓ Identified</span>';
+                    }
+                    
+                    // Show sections immediately after identification (don't wait for ConnectionOpened)
+                    console.log("OBS Identified - showing profile and streaming sections");
+                    const profileSection = document.getElementById("mg-obs-profile-section");
+                    if (profileSection) {
+                        console.log("Found profile section, removing hidden class");
+                        profileSection.classList.remove("hidden");
+                        // Load profiles
+                        try {
+                            await listOBSProfiles();
+                        } catch (e) {
+                            console.error("Error loading profiles:", e);
+                        }
+                    } else {
+                        console.error("Profile section not found!");
+                    }
+                    
+                    const streamingSection = document.getElementById("mg-obs-streaming-section");
+                    if (streamingSection) {
+                        console.log("Found streaming section, removing hidden class");
+                        streamingSection.classList.remove("hidden");
+                    } else {
+                        console.error("Streaming section not found!");
+                    }
+                    
+                        // Sync panel UI
+                        syncOBSPanelUI();
+                        
+                        // Start preview updates
+                        startOBSPreview();
+                        // If PIP is visible, start PIP preview too
+                        if (isPIPVisible) {
+                            startOBSPreviewPIP();
+                        }
+                } else if (data.op === 5) {
+                    // Event message
+                    if (data.d && data.d.eventType === "ConnectionOpened") {
+                        // Ensure WebSocket reference is set (should already be set from op: 2)
+                        obsWebSocket = ws;
+                        statusEl.innerHTML = '<span class="text-green-400">✓ Connected to OBS</span>';
+                        if (connectionStatusEl) {
+                            connectionStatusEl.innerHTML = '<span class="text-green-400">✓ Connected to OBS</span>';
+                        }
+                        showPopup("Connected to OBS successfully!");
+                        
+                        // Ensure sections are visible (they should already be from op: 2, but double-check)
+                        const profileSection = document.getElementById("mg-obs-profile-section");
+                        if (profileSection && profileSection.classList.contains("hidden")) {
+                            profileSection.classList.remove("hidden");
+                        }
+                        
+                        const streamingSection = document.getElementById("mg-obs-streaming-section");
+                        if (streamingSection && streamingSection.classList.contains("hidden")) {
+                            streamingSection.classList.remove("hidden");
+                        }
+                    } else if (data.d && data.d.eventType === "StreamStateChanged") {
+                        // Handle stream state changes
+                        const outputState = data.d.eventData?.outputState;
+                        const statusEl = document.getElementById("mg-obs-streaming-status");
+                        
+                        if (outputState === "OBS_WEBSOCKET_OUTPUT_STARTED") {
+                            const statusHTML = '<span class="text-green-400 text-sm">✓ Streaming Started</span>';
+                            if (statusEl) {
+                                statusEl.innerHTML = '<span class="text-green-400">✓ Streaming Started</span>';
+                            }
+                            updateOBSPanelStreamingStatus(statusHTML);
+                            showPopup("OBS streaming started!");
+                        } else if (outputState === "OBS_WEBSOCKET_OUTPUT_STOPPED") {
+                            const statusHTML = '<span class="text-yellow-400 text-sm">Streaming Stopped</span>';
+                            if (statusEl) {
+                                statusEl.innerHTML = '<span class="text-yellow-400">Streaming Stopped</span>';
+                            }
+                            updateOBSPanelStreamingStatus(statusHTML);
+                            showPopup("OBS streaming stopped");
+                        } else if (outputState === "OBS_WEBSOCKET_OUTPUT_STARTING") {
+                            const statusHTML = '<span class="text-blue-400 text-sm">Starting stream...</span>';
+                            if (statusEl) {
+                                statusEl.innerHTML = '<span class="text-blue-400">Starting stream...</span>';
+                            }
+                            updateOBSPanelStreamingStatus(statusHTML);
+                        } else if (outputState === "OBS_WEBSOCKET_OUTPUT_STOPPING") {
+                            const statusHTML = '<span class="text-yellow-400 text-sm">Stopping stream...</span>';
+                            if (statusEl) {
+                                statusEl.innerHTML = '<span class="text-yellow-400">Stopping stream...</span>';
+                            }
+                            updateOBSPanelStreamingStatus(statusHTML);
+                        }
+                    } else if (data.d && data.d.eventType === "ConnectionClosed") {
+                        statusEl.innerHTML = '<span class="text-red-400">✗ Connection closed by OBS</span>';
+                        if (connectionStatusEl) {
+                            connectionStatusEl.innerHTML = '<span class="text-red-400">✗ Connection closed by OBS</span>';
+                        }
+                        obsWebSocket = null;
+                        stopOBSPreview();
+                        const profileSection = document.getElementById("mg-obs-profile-section");
+                        if (profileSection) profileSection.classList.add("hidden");
+                        const streamingSection = document.getElementById("mg-obs-streaming-section");
+                        if (streamingSection) streamingSection.classList.add("hidden");
+                    }
+                } else if (data.op === 7) {
+                    // RequestResponse - handle responses to our requests
+                    if (data.d && data.d.requestId) {
+                        const requestId = data.d.requestId;
+                        const pendingRequest = obsPendingRequests.get(requestId);
+                        
+                        if (pendingRequest) {
+                            clearTimeout(pendingRequest.timeout);
+                            obsPendingRequests.delete(requestId);
+                            
+                            if (data.d.requestStatus && data.d.requestStatus.code === 100) {
+                                console.log(`OBS request succeeded: ${pendingRequest.requestType}`, data.d.responseData);
+                                pendingRequest.resolve(data.d.responseData);
+                            } else {
+                                const errorMsg = data.d.requestStatus?.comment || `OBS request failed: ${pendingRequest.requestType}`;
+                                console.error(`OBS request failed: ${pendingRequest.requestType}`, data.d.requestStatus);
+                                pendingRequest.reject(new Error(errorMsg));
+                            }
+                        } else {
+                            console.log("OBS Request Response (no pending request):", data.d);
+                        }
+                    }
                 }
+            } catch (error) {
+                console.error("Error processing OBS message:", error);
+                statusEl.innerHTML = '<span class="text-red-400">✗ Error processing message</span>';
             }
         };
         
         ws.onerror = (error) => {
             statusEl.innerHTML = '<span class="text-red-400">✗ Connection failed</span>';
+            if (connectionStatusEl) connectionStatusEl.innerHTML = '<span class="text-red-400">✗ Connection failed</span>';
             showPopup("Failed to connect to OBS. Make sure OBS is running and WebSocket server is enabled.");
+            console.error("OBS WebSocket error:", error);
         };
         
-        ws.onclose = () => {
+        ws.onclose = (event) => {
+            // Reject all pending requests
+            obsPendingRequests.forEach((request, requestId) => {
+                clearTimeout(request.timeout);
+                request.reject(new Error("OBS WebSocket closed"));
+            });
+            obsPendingRequests.clear();
+            
             obsWebSocket = null;
-            statusEl.innerHTML = '<span class="text-gray-400">Disconnected</span>';
+            stopOBSPreview();
+            const profileSection = document.getElementById("mg-obs-profile-section");
+            if (profileSection) profileSection.classList.add("hidden");
+            const streamingSection = document.getElementById("mg-obs-streaming-section");
+            if (streamingSection) streamingSection.classList.add("hidden");
+            
+            if (event.code !== 1000) {
+                statusEl.innerHTML = `<span class="text-red-400">✗ Disconnected (code: ${event.code})</span>`;
+                if (connectionStatusEl) connectionStatusEl.innerHTML = `<span class="text-red-400">✗ Disconnected (code: ${event.code})</span>`;
+            } else {
+                statusEl.innerHTML = '<span class="text-gray-400">Disconnected</span>';
+                if (connectionStatusEl) connectionStatusEl.innerHTML = '<span class="text-gray-400">Disconnected</span>';
+            }
         };
     } catch (error) {
         statusEl.innerHTML = '<span class="text-red-400">✗ Error: ' + error.message + '</span>';
+        if (connectionStatusEl) connectionStatusEl.innerHTML = '<span class="text-red-400">✗ Error: ' + error.message + '</span>';
         showPopup(`Error: ${error.message}`);
+        console.error("OBS connection error:", error);
     }
 }
 
 function disconnectOBS() {
-    if (obsWebSocket) {
-        obsWebSocket.close();
-        obsWebSocket = null;
-        document.getElementById("mg-obs-status").innerHTML = '<span class="text-gray-400">Disconnected</span>';
+    let wasConnected = false;
+    
+    // Check if we have a WebSocket reference and it's in a valid state
+    if (obsWebSocket && (obsWebSocket.readyState === WebSocket.OPEN || obsWebSocket.readyState === WebSocket.CONNECTING)) {
+        wasConnected = true;
+        try {
+            // Close with normal closure code
+            obsWebSocket.close(1000, "User disconnected");
+        } catch (error) {
+            console.error("Error closing OBS connection:", error);
+        }
+    }
+    
+    // Always clear the UI state, regardless of connection state
+    obsWebSocket = null;
+    stopOBSPreview();
+    document.getElementById("mg-obs-status").innerHTML = '<span class="text-gray-400">Disconnected</span>';
+    const connectionStatusEl = document.getElementById("mg-obs-connection-status");
+    if (connectionStatusEl) connectionStatusEl.innerHTML = '<span class="text-gray-400">Disconnected</span>';
+    
+    // Update panel status
+    const panelStatus = document.getElementById("obs-panel-status");
+    if (panelStatus) {
+        panelStatus.innerHTML = '<span class="text-gray-400">Disconnected</span>';
+    }
+    
+    // Clear preview
+    const previewEl = document.getElementById("obs-preview");
+    if (previewEl) {
+        previewEl.innerHTML = '<div class="text-gray-400 text-sm">OBS Preview</div>';
+    }
+    const previewStatusEl = document.getElementById("obs-preview-status");
+    if (previewStatusEl) {
+        previewStatusEl.textContent = "";
+    }
+    
+    const profileSection = document.getElementById("mg-obs-profile-section");
+    if (profileSection) profileSection.classList.add("hidden");
+    
+    const streamingSection = document.getElementById("mg-obs-streaming-section");
+    if (streamingSection) streamingSection.classList.add("hidden");
+    
+    // Only show one disconnect message
+    if (wasConnected) {
         showPopup("Disconnected from OBS");
+    }
+}
+
+function toggleOBSAdvancedSettings() {
+    const settingsEl = document.getElementById("mg-obs-advanced-settings");
+    if (settingsEl) settingsEl.classList.toggle("hidden");
+}
+
+// Toggle OBS Control Panel visibility
+function toggleOBSControlPanel() {
+    const panel = document.getElementById("obs-control-panel");
+    const toggleBtn = document.getElementById("obs-panel-toggle-btn");
+    
+    if (panel) {
+        const isHidden = panel.classList.contains("hidden");
+        panel.classList.toggle("hidden");
+        
+        // Toggle button is now icon-only, no text change needed
+        
+        // If showing and OBS is connected, sync the UI
+        if (isHidden && obsWebSocket && obsWebSocket.readyState === WebSocket.OPEN) {
+            syncOBSPanelUI();
+        }
+    }
+}
+
+// Connect OBS from the control panel
+async function connectOBSFromPanel() {
+    const panelPassword = document.getElementById("obs-panel-password");
+    const mgPassword = document.getElementById("mg-obs-password");
+    
+    // Sync password between panel and Media Gateway section (if it exists)
+    if (panelPassword && mgPassword) {
+        mgPassword.value = panelPassword.value;
+    }
+    
+    // Ensure password is set
+    if (!panelPassword?.value) {
+        showPopup("Please enter OBS WebSocket password");
+        panelPassword?.focus();
+        return;
+    }
+    
+    // Use the existing connectOBS function
+    await connectOBS();
+    
+    // Update panel status
+    const panelStatus = document.getElementById("obs-panel-status");
+    if (panelStatus) {
+        panelStatus.innerHTML = '<span class="text-blue-400">Connecting...</span>';
+    }
+}
+
+// Sync OBS panel UI when connected
+function syncOBSPanelUI() {
+    // Sync password
+    const panelPassword = document.getElementById("obs-panel-password");
+    const mgPassword = document.getElementById("mg-obs-password");
+    if (panelPassword && mgPassword) {
+        panelPassword.value = mgPassword.value;
+    }
+    
+    // Sync profile dropdown
+    const panelProfile = document.getElementById("obs-panel-profile");
+    const mgProfile = document.getElementById("mg-obs-profile");
+    if (panelProfile && mgProfile) {
+        panelProfile.innerHTML = mgProfile.innerHTML;
+        panelProfile.value = mgProfile.value;
+    }
+    
+    // Update status
+    const panelStatus = document.getElementById("obs-panel-status");
+    const mgStatus = document.getElementById("mg-obs-status");
+    if (panelStatus && mgStatus) {
+        panelStatus.innerHTML = mgStatus.innerHTML;
+    }
+}
+
+// Update OBS panel streaming status
+function updateOBSPanelStreamingStatus(statusHTML) {
+    const panelStreamingStatus = document.getElementById("obs-panel-streaming-status");
+    if (panelStreamingStatus) {
+        panelStreamingStatus.innerHTML = statusHTML;
+    }
+}
+
+// OBS Preview polling
+let obsPreviewInterval = null;
+let obsPIPInterval = null;
+let isPIPVisible = false;
+
+// Toggle OBS Preview PIP window
+function toggleOBSPreviewPIP() {
+    const pip = document.getElementById("obs-preview-pip");
+    if (!pip) return;
+    
+    isPIPVisible = !isPIPVisible;
+    if (isPIPVisible) {
+        pip.style.display = 'block';
+        // Position in top-right corner if not already positioned
+        if (!pip.dataset.hasPosition) {
+            pip.style.top = '80px';
+            pip.style.right = '20px';
+            pip.style.left = 'auto';
+        }
+        startOBSPreviewPIP();
+    } else {
+        pip.style.display = 'none';
+        stopOBSPreviewPIP();
+    }
+}
+
+// Make PIP draggable
+let isDragging = false;
+let dragOffset = { x: 0, y: 0 };
+
+// Initialize dragging when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initOBSPIPDragging);
+} else {
+    initOBSPIPDragging();
+}
+
+function initOBSPIPDragging() {
+    const pip = document.getElementById("obs-preview-pip");
+    if (!pip) return;
+    
+    const header = pip.querySelector('.pip-header');
+    if (!header) return;
+    
+    header.addEventListener('mousedown', (e) => {
+        if (e.target.classList.contains('pip-close')) return;
+        isDragging = true;
+        pip.classList.add('dragging');
+        const rect = pip.getBoundingClientRect();
+        dragOffset.x = e.clientX - rect.left;
+        dragOffset.y = e.clientY - rect.top;
+        e.preventDefault();
+        e.stopPropagation();
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const x = e.clientX - dragOffset.x;
+        const y = e.clientY - dragOffset.y;
+        
+        // Keep within viewport bounds
+        const maxX = window.innerWidth - pip.offsetWidth;
+        const maxY = window.innerHeight - pip.offsetHeight;
+        
+        // Remove right property and set left/top explicitly
+        pip.style.removeProperty('right');
+        pip.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
+        pip.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
+        pip.dataset.hasPosition = 'true';
+    });
+    
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            pip.classList.remove('dragging');
+        }
+    });
+}
+
+// Start OBS preview updates
+async function startOBSPreview() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        return;
+    }
+    
+    // Stop any existing preview
+    stopOBSPreview();
+    
+    try {
+        const sceneList = await sendOBSRequest("GetSceneList");
+        if (sceneList && sceneList.currentProgramSceneName) {
+            updateOBSPreview();
+            // Update scene name every 2 seconds
+            obsPreviewInterval = setInterval(updateOBSPreview, 2000);
+        }
+    } catch (error) {
+        console.error("Error starting OBS preview:", error);
+    }
+}
+
+// Start OBS Preview PIP with video frames
+async function startOBSPreviewPIP() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        return;
+    }
+    
+    stopOBSPreviewPIP();
+    updateOBSPreviewPIP();
+    // Update preview every 500ms for smooth video
+    obsPIPInterval = setInterval(updateOBSPreviewPIP, 500);
+}
+
+// Stop OBS Preview PIP
+function stopOBSPreviewPIP() {
+    if (obsPIPInterval) {
+        clearInterval(obsPIPInterval);
+        obsPIPInterval = null;
+    }
+}
+
+// Stop OBS preview updates
+function stopOBSPreview() {
+    if (obsPreviewInterval) {
+        clearInterval(obsPreviewInterval);
+        obsPreviewInterval = null;
+    }
+    stopOBSPreviewPIP();
+    const previewEl = document.getElementById("obs-preview");
+    if (previewEl) {
+        previewEl.innerHTML = '<div class="text-[10px]">OBS</div>';
+    }
+}
+
+// Update OBS preview - show scene name and status in small box
+async function updateOBSPreview() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        return;
+    }
+    
+    const previewEl = document.getElementById("obs-preview");
+    const previewStatusEl = document.getElementById("obs-preview-status");
+    
+    try {
+        const sceneList = await sendOBSRequest("GetSceneList");
+        const streamStatus = await sendOBSRequest("GetStreamStatus");
+        
+        if (!sceneList || !sceneList.currentProgramSceneName) {
+            if (previewEl) previewEl.innerHTML = '<div class="text-[10px]">OBS</div>';
+            return;
+        }
+        
+        const sceneName = sceneList.currentProgramSceneName;
+        const isStreaming = streamStatus && streamStatus.outputActive;
+        const statusText = isStreaming ? '●' : '○';
+        const statusColor = isStreaming ? 'text-red-400' : 'text-gray-400';
+        
+        if (previewEl) {
+            previewEl.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full">
+                    <div class="${statusColor} text-xs">${statusText}</div>
+                    <div class="text-gray-300 text-[8px] text-center truncate w-full">${sceneName}</div>
+                </div>
+            `;
+        }
+        if (previewStatusEl) {
+            previewStatusEl.textContent = sceneName;
+        }
+    } catch (error) {
+        // Ignore errors
+    }
+}
+
+// Update OBS Preview PIP with actual video frames
+async function updateOBSPreviewPIP() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN || !isPIPVisible) {
+        return;
+    }
+    
+    const pipContent = document.getElementById("obs-preview-pip-content");
+    if (!pipContent) return;
+    
+    try {
+        const sceneList = await sendOBSRequest("GetSceneList");
+        if (!sceneList || !sceneList.currentProgramSceneName) {
+            pipContent.innerHTML = '<div class="text-gray-400 text-sm p-4">No scene active</div>';
+            return;
+        }
+        
+        // Get screenshot of the program output (larger for bigger PIP)
+        const screenshot = await sendOBSRequest("GetSourceScreenshot", {
+            sourceName: sceneList.currentProgramSceneName,
+            imageFormat: "png",
+            imageWidth: 480,
+            imageHeight: 270,
+            imageCompressionQuality: 70
+        });
+        
+        if (screenshot && screenshot.imageData) {
+            // Check if imageData already has data URI prefix
+            const imageSrc = screenshot.imageData.startsWith('data:') 
+                ? screenshot.imageData 
+                : `data:image/png;base64,${screenshot.imageData}`;
+            pipContent.innerHTML = `<img src="${imageSrc}" class="w-full h-full object-contain" alt="OBS Preview" />`;
+        } else {
+            pipContent.innerHTML = `<div class="text-gray-400 text-sm p-4">Scene: ${sceneList.currentProgramSceneName}</div>`;
+        }
+    } catch (error) {
+        // Silently fail - preview might not be available
+        console.log("Preview update failed:", error.message);
+    }
+}
+
+// Helper function to send OBS WebSocket requests
+async function sendOBSRequest(requestType, requestData = {}) {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        throw new Error("OBS WebSocket is not connected");
+    }
+    
+    return new Promise((resolve, reject) => {
+        const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        const message = {
+            op: 6, // Request
+            d: {
+                requestType: requestType,
+                requestId: requestId,
+                requestData: requestData
+            }
+        };
+        
+        const timeout = setTimeout(() => {
+            obsPendingRequests.delete(requestId);
+            reject(new Error(`OBS request timeout: ${requestType}`));
+        }, 10000);
+        
+        // Store the resolver/rejector
+        obsPendingRequests.set(requestId, { resolve, reject, timeout, requestType });
+        
+        console.log(`Sending OBS request: ${requestType}`, requestData);
+        obsWebSocket.send(JSON.stringify(message));
+    });
+}
+
+// Get RTMP URL based on region
+function getRTMPURL(region) {
+    const regionMap = {
+        'na': 'rtls-ingress-prod-na.agoramdn.com',
+        'eu': 'rtls-ingress-prod-eu.agoramdn.com',
+        'ap': 'rtls-ingress-prod-ap.agoramdn.com',
+        'cn': 'rtls-ingress-prod-cn.agoramdn.com'
+    };
+    return regionMap[region] || regionMap['na'];
+}
+
+// List OBS profiles
+async function listOBSProfiles() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        showPopup("Please connect to OBS first");
+        return;
+    }
+    
+    try {
+        const response = await sendOBSRequest("GetProfileList");
+        const profileSelect = document.getElementById("mg-obs-profile");
+        const panelProfileSelect = document.getElementById("obs-panel-profile");
+        
+        const updateSelect = (select) => {
+            if (!select) return;
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Select a profile...</option>';
+            
+            // Add "Create New" option for panel select
+            if (select.id === "obs-panel-profile") {
+                const createOption = document.createElement('option');
+                createOption.value = "__create_new__";
+                createOption.textContent = "+ Create New";
+                select.appendChild(createOption);
+            }
+            
+            if (response.profiles && response.profiles.length > 0) {
+                response.profiles.forEach(profile => {
+                    const option = document.createElement('option');
+                    option.value = profile;
+                    option.textContent = profile;
+                    if (response.currentProfileName === profile || currentValue === profile) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            }
+        };
+        
+        updateSelect(profileSelect);
+        updateSelect(panelProfileSelect);
+        
+        showPopup("Profiles loaded successfully");
+    } catch (error) {
+        showPopup(`Error loading profiles: ${error.message}`);
+        console.error("Error listing OBS profiles:", error);
+    }
+}
+
+// Handle profile select change - show input for "Create New"
+function handleProfileSelectChange(select) {
+    const newProfileInput = document.getElementById("obs-panel-new-profile-name");
+    if (!newProfileInput) return;
+    
+    if (select.value === "__create_new__") {
+        newProfileInput.classList.remove("hidden");
+        newProfileInput.focus();
+    } else {
+        newProfileInput.classList.add("hidden");
+        newProfileInput.value = "";
+    }
+}
+
+// Create new OBS profile
+async function createOBSProfile() {
+    const profileNameInput = document.getElementById("mg-obs-new-profile-name");
+    if (!profileNameInput) return;
+    
+    const profileName = profileNameInput.value;
+    if (!profileName) {
+        showPopup("Please enter a profile name");
+        return;
+    }
+    
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        showPopup("Please connect to OBS first");
+        return;
+    }
+    
+    try {
+        await sendOBSRequest("CreateProfile", { profileName: profileName });
+        showPopup(`Profile "${profileName}" created successfully`);
+        profileNameInput.value = "";
+        await listOBSProfiles();
+        // Select the new profile
+        const profileSelect = document.getElementById("mg-obs-profile");
+        if (profileSelect) profileSelect.value = profileName;
+    } catch (error) {
+        showPopup(`Error creating profile: ${error.message}`);
+        console.error("Error creating OBS profile:", error);
+    }
+}
+
+// Update OBS profile with recommended settings
+async function updateOBSProfile() {
+    console.log("updateOBSProfile called");
+    const profileSelect = document.getElementById("mg-obs-profile");
+    const panelProfileSelect = document.getElementById("obs-panel-profile");
+    const newProfileInput = document.getElementById("obs-panel-new-profile-name");
+    
+    console.log("Profile selects:", { 
+        profileSelect: !!profileSelect, 
+        panelProfileSelect: !!panelProfileSelect,
+        panelValue: panelProfileSelect?.value,
+        profileValue: profileSelect?.value
+    });
+    
+    // Check if creating new profile
+    if (panelProfileSelect && panelProfileSelect.value === "__create_new__") {
+        console.log("Creating new profile...");
+        const newProfileName = newProfileInput ? newProfileInput.value.trim() : "";
+        if (!newProfileName) {
+            showPopup("Please enter a profile name (press Enter or click Update)");
+            if (newProfileInput) newProfileInput.focus();
+            return;
+        }
+        // Create the profile first
+        try {
+            await sendOBSRequest("CreateProfile", { profileName: newProfileName });
+            
+            // Set the new profile as current
+            await sendOBSRequest("SetCurrentProfile", { profileName: newProfileName });
+            
+            // Get current stream key from Media Gateway if it exists
+            const streamKeyEl = document.getElementById("mg-stream-key");
+            const currentStreamKey = streamKeyEl ? streamKeyEl.value.trim() : "";
+            
+            // Get region for RTMP URL
+            refreshCredentials();
+            const currentRegion = region || localStorage.getItem("agoraRegion") || "na";
+            const rtmpServer = getRTMPURL(currentRegion);
+            const rtmpURL = `rtmp://${rtmpServer}/live`;
+            
+            // Set stream service settings to rtmp_custom immediately after creating profile
+            await sendOBSRequest("SetStreamServiceSettings", {
+                streamServiceType: "rtmp_custom",
+                streamServiceSettings: {
+                    server: rtmpURL, // Always set the server URL
+                    key: currentStreamKey || "" // Set key if available
+                }
+            });
+            
+            showPopup(`Profile "${newProfileName}" created${currentStreamKey ? ' with RTMP settings' : ''}!`);
+            if (newProfileInput) newProfileInput.value = "";
+            if (newProfileInput) newProfileInput.classList.add("hidden");
+            
+            // Refresh profiles list and select the new one
+            await listOBSProfiles();
+            
+            // Wait a bit for the dropdown to update, then select the new profile
+            setTimeout(() => {
+                if (panelProfileSelect) {
+                    panelProfileSelect.value = newProfileName;
+                    // Trigger change event to sync
+                    panelProfileSelect.dispatchEvent(new Event('change'));
+                }
+                if (profileSelect) {
+                    profileSelect.value = newProfileName;
+                }
+            }, 100);
+            
+            return; // Exit early since we've already set everything up
+        } catch (error) {
+            showPopup(`Error creating profile: ${error.message}`);
+            console.error("Error creating OBS profile:", error);
+            return;
+        }
+    }
+    
+    // Get profile name from either select
+    const profileName = (profileSelect && profileSelect.value) || (panelProfileSelect && panelProfileSelect.value);
+    
+    // Sync the values
+    if (profileSelect && panelProfileSelect) {
+        profileSelect.value = profileName;
+        panelProfileSelect.value = profileName;
+    }
+    if (!profileName || profileName === "__create_new__") {
+        showPopup("Please select a profile to update");
+        return;
+    }
+    
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        console.log("OBS not connected");
+        showPopup("Please connect to OBS first");
+        return;
+    }
+    
+    // Status element is optional - use popup if not found
+    const statusEl = document.getElementById("mg-obs-profile-status");
+    const panelStatusEl = document.getElementById("obs-panel-status");
+    
+    console.log("Updating profile:", profileName);
+    console.log("Status elements:", { statusEl: !!statusEl, panelStatusEl: !!panelStatusEl });
+    
+    const statusMessage = "Updating profile settings...";
+    if (statusEl) statusEl.textContent = statusMessage;
+    if (panelStatusEl) panelStatusEl.textContent = statusMessage;
+    
+    try {
+        console.log("Setting current profile to:", profileName);
+        // Set the profile first
+        const setProfileResult = await sendOBSRequest("SetCurrentProfile", { profileName: profileName });
+        console.log("Profile set successfully:", setProfileResult);
+        
+        // Small delay to ensure profile switch is processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Get current stream key from Media Gateway if it exists
+        const streamKeyEl = document.getElementById("mg-stream-key");
+        const currentStreamKey = streamKeyEl ? streamKeyEl.value.trim() : "";
+        
+        // Get region for RTMP URL
+        refreshCredentials();
+        const currentRegion = region || localStorage.getItem("agoraRegion") || "na";
+        const rtmpServer = getRTMPURL(currentRegion);
+        const rtmpURL = `rtmp://${rtmpServer}/live`;
+        
+        // Update output settings (streaming) - use rtmp_custom for Custom RTMP service
+        // Always set rtmp_custom with server URL, even if no stream key yet
+        console.log("Setting stream service settings:", {
+            type: "rtmp_custom",
+            server: rtmpURL,
+            hasKey: !!currentStreamKey
+        });
+        await sendOBSRequest("SetStreamServiceSettings", {
+            streamServiceType: "rtmp_custom",
+            streamServiceSettings: {
+                server: rtmpURL, // Always set the server URL
+                key: currentStreamKey || "" // Set key if available
+            }
+        });
+        console.log("Stream service settings updated");
+        
+        // Note: OBS WebSocket v5 allows updating:
+        // - Stream Service Settings (we're doing this) ✓
+        // - Video Settings (base/output resolution, FPS) - via SetVideoSettings
+        // - Output Settings (encoder, bitrate, etc.) - mostly read-only, must be set in OBS UI
+        // - Scene settings (scenes, sources)
+        // - Source settings (individual source properties)
+        
+        // Try to get current settings for logging
+        try {
+            const currentVideoSettings = await sendOBSRequest("GetVideoSettings");
+            console.log("Current video settings:", currentVideoSettings);
+            // Video settings can be updated with SetVideoSettings, but we'll leave them as-is
+            // to avoid changing user's preferred resolution/FPS
+        } catch (e) {
+            console.log("Could not get video settings:", e.message);
+        }
+        
+        // Verify the settings were applied
+        let verified = false;
+        try {
+            const verify = await sendOBSRequest("GetStreamServiceSettings");
+            verified = verify && verify.streamServiceType === "rtmp_custom";
+            console.log("Verified stream service settings:", {
+                type: verify.streamServiceType,
+                server: verify.streamServiceSettings?.server,
+                keySet: !!verify.streamServiceSettings?.key
+            });
+        } catch (e) {
+            console.log("Could not verify settings:", e);
+        }
+        
+        const successMessage = `Profile updated! ${verified ? '✓ Set to Custom RTMP' : 'Settings applied.'} ${currentStreamKey ? 'RTMP URL and stream key have been set.' : 'Note: Stream key not set yet. Create a Media Gateway stream key first.'}`;
+        
+        if (statusEl) {
+            statusEl.innerHTML = `
+                <div class="text-yellow-400 text-sm">
+                    <p class="font-semibold mb-2">${successMessage}</p>
+                    <p class="text-xs mt-2">You must manually verify these settings in OBS Settings → Output tab:</p>
+                    <ul class="list-disc list-inside space-y-1 text-xs mt-1">
+                        <li>Bitrate: maximum 3500 kbps</li>
+                        <li>Keyframe Interval: "2 s"</li>
+                        <li>Rate Control: "CBR"</li>
+                        <li>Tune: "zerolatency"</li>
+                    </ul>
+                </div>
+            `;
+        }
+        if (panelStatusEl) {
+            panelStatusEl.textContent = verified ? "✓ Custom RTMP" : "Updated";
+        }
+        showPopup("Profile updated! " + (verified ? "Set to Custom RTMP. " : "") + (currentStreamKey ? "RTMP URL and stream key set." : "Create a stream key to set RTMP URL."));
+    } catch (error) {
+        const errorMessage = `Error: ${error.message}`;
+        if (statusEl) {
+            statusEl.innerHTML = `<span class="text-red-400">${errorMessage}</span>`;
+        }
+        if (panelStatusEl) {
+            panelStatusEl.textContent = "Error";
+        }
+        showPopup(`Error updating profile: ${error.message}`);
+        console.error("Error updating OBS profile:", error);
+    }
+}
+
+// Open OBS Settings Modal
+async function openOBSSettingsModal() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        showPopup("Please connect to OBS first");
+        return;
+    }
+    
+    const modal = document.getElementById("obsSettingsModal");
+    const content = document.getElementById("obs-settings-content");
+    if (!modal || !content) return;
+    
+    modal.classList.remove("hidden");
+    content.innerHTML = '<p class="text-gray-400">Loading settings...</p>';
+    
+    try {
+        // Determine which output to use - try adv_stream first (Advanced mode)
+        let outputName = "adv_stream";
+        let isAdvancedMode = true;
+        let outputSettings = null;
+        
+        // Try to get output settings for adv_stream first to detect mode
+        // Always check fresh - don't cache mode detection
+        try {
+            outputSettings = await sendOBSRequest("GetOutputSettings", { outputName: "adv_stream" });
+            // If successful, we're in Advanced mode
+            isAdvancedMode = true;
+            outputName = "adv_stream";
+            console.log("OBS is in Advanced Mode - adv_stream output found");
+        } catch (e) {
+            const errorMsg = e.message || String(e) || "";
+            console.log("Checking OBS mode - adv_stream error:", errorMsg);
+            // Check for various error messages that indicate Simple mode
+            if (errorMsg.includes("No output was found") || 
+                errorMsg.includes("not found") || 
+                errorMsg.includes("does not exist") ||
+                errorMsg.includes("Invalid output name")) {
+                isAdvancedMode = false;
+                outputName = ""; // No specific output name for Simple mode
+                outputSettings = { error: errorMsg, isSimpleMode: true };
+                console.log("OBS is in Simple Mode - adv_stream not available");
+            } else {
+                // Other error - might be connection issue, but assume Simple mode for safety
+                isAdvancedMode = false;
+                outputSettings = { error: errorMsg, isSimpleMode: true };
+                console.log("Assuming Simple Mode due to error:", errorMsg);
+            }
+        }
+        
+        // Fetch other OBS settings in parallel
+        const [videoSettings, streamServiceSettings, sceneList] = await Promise.all([
+            sendOBSRequest("GetVideoSettings").catch(e => ({ error: e.message })),
+            sendOBSRequest("GetStreamServiceSettings").catch(e => ({ error: e.message })),
+            sendOBSRequest("GetSceneList").catch(e => ({ error: e.message }))
+        ]);
+        
+        let html = '<div class="space-y-6">';
+        
+        // Video Settings
+        html += '<div class="modern-panel p-4">';
+        html += '<h3 class="text-lg font-semibold mb-3">Video Settings</h3>';
+        if (videoSettings.error) {
+            html += `<p class="text-red-400 text-sm">Error: ${videoSettings.error}</p>`;
+        } else {
+            html += '<div class="grid grid-cols-2 gap-3">';
+            html += `<div><label class="text-sm text-gray-400">Base Width</label><input type="number" id="obs-video-base-width" value="${videoSettings.baseWidth || ''}" class="w-full" /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Base Height</label><input type="number" id="obs-video-base-height" value="${videoSettings.baseHeight || ''}" class="w-full" /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Output Width</label><input type="number" id="obs-video-output-width" value="${videoSettings.outputWidth || ''}" class="w-full" /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Output Height</label><input type="number" id="obs-video-output-height" value="${videoSettings.outputHeight || ''}" class="w-full" /></div>`;
+            
+            // FPS - use common values dropdown instead of numerator/denominator
+            const currentFPS = videoSettings.fpsNumerator && videoSettings.fpsDenominator 
+                ? Math.round(videoSettings.fpsNumerator / videoSettings.fpsDenominator) 
+                : 30;
+            const commonFPS = [15, 24, 25, 30, 48, 50, 60];
+            html += `<div class="col-span-2"><label class="text-sm text-gray-400">FPS (Frames Per Second)</label>`;
+            html += `<select id="obs-video-fps" class="w-full">`;
+            commonFPS.forEach(fps => {
+                const selected = currentFPS === fps ? 'selected' : '';
+                html += `<option value="${fps}" ${selected}>${fps} fps</option>`;
+            });
+            // Add custom option if current FPS is not in common list
+            if (!commonFPS.includes(currentFPS) && currentFPS > 0) {
+                html += `<option value="${currentFPS}" selected>${currentFPS} fps (current)</option>`;
+            }
+            html += `</select></div>`;
+            html += '</div>';
+        }
+        html += '</div>';
+        
+        // Stream Service Settings
+        html += '<div class="modern-panel p-4">';
+        html += '<h3 class="text-lg font-semibold mb-3">Stream Service Settings</h3>';
+        if (streamServiceSettings.error) {
+            html += `<p class="text-red-400 text-sm">Error: ${streamServiceSettings.error}</p>`;
+        } else {
+            html += '<div class="space-y-3">';
+            html += `<div><label class="text-sm text-gray-400">Service Type</label><input type="text" id="obs-stream-service-type" value="${streamServiceSettings.streamServiceType || ''}" class="w-full" readonly /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Server</label><input type="text" id="obs-stream-server" value="${streamServiceSettings.streamServiceSettings?.server || ''}" class="w-full" /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Stream Key</label><input type="password" id="obs-stream-key" value="${streamServiceSettings.streamServiceSettings?.key || ''}" class="w-full" /></div>`;
+            html += '</div>';
+        }
+        html += '</div>';
+        
+        // Output Settings (editable fields)
+        html += '<div class="modern-panel p-4">';
+        html += '<h3 class="text-lg font-semibold mb-3">Output Settings</h3>';
+        
+        // Show mode indicator
+        if (!isAdvancedMode) {
+            html += '<div class="mb-3 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">';
+            html += '<p class="text-yellow-300 text-sm font-semibold mb-1">⚠️ OBS is in Simple Mode</p>';
+            html += '<p class="text-yellow-200 text-xs">To access advanced output settings (bitrate, keyframe interval, rate control, tune), switch OBS to Advanced Mode:</p>';
+            html += '<ol class="text-yellow-200 text-xs list-decimal list-inside mt-2 space-y-1">';
+            html += '<li>Open OBS Studio</li>';
+            html += '<li>Go to Settings → Output</li>';
+            html += '<li>Change "Output Mode" from "Simple" to "Advanced"</li>';
+            html += '<li>Click "OK" to save</li>';
+            html += '<li>Click "🔄 Refresh" button above to reload settings</li>';
+            html += '</ol>';
+            html += '</div>';
+        } else {
+            html += '<div class="mb-3 p-2 bg-green-500/20 border border-green-500/50 rounded-lg">';
+            html += '<p class="text-green-300 text-xs">✓ OBS is in Advanced Mode - Full settings available</p>';
+            html += '</div>';
+        }
+        
+        if (outputSettings.error) {
+            const errorMsg = outputSettings.error.includes("No output was found") 
+                ? `Output "${outputName}" not found. ${!isAdvancedMode ? 'OBS is in Simple Mode - switch to Advanced Mode to access these settings.' : 'This output may not be available.'}`
+                : outputSettings.error;
+            html += `<p class="text-yellow-400 text-sm mb-3">Note: ${errorMsg}</p>`;
+            // Still show editable fields even if we can't fetch current values (only if in Advanced mode)
+            if (isAdvancedMode) {
+                html += '<div class="space-y-3">';
+                html += '<div><label class="text-sm text-gray-400">Bitrate (kbps)</label><input type="number" id="obs-output-bitrate" placeholder="e.g. 3500" class="w-full" /></div>';
+                html += '<div><label class="text-sm text-gray-400">Keyframe Interval (seconds)</label><input type="number" id="obs-output-keyframe" placeholder="e.g. 2" step="0.1" class="w-full" /></div>';
+                html += '<div><label class="text-sm text-gray-400">Rate Control</label><select id="obs-output-rate-control" class="w-full"><option value="CBR">CBR</option><option value="VBR">VBR</option><option value="ABR">ABR</option></select></div>';
+                html += '<div><label class="text-sm text-gray-400">Tune</label><select id="obs-output-tune" class="w-full"><option value="zerolatency">zerolatency</option><option value="lowlatency">lowlatency</option><option value="">None</option></select></div>';
+                html += '</div>';
+                html += '<p class="text-yellow-400 text-xs mt-2">Note: These settings may need to be set manually in OBS Settings → Output tab if the API doesn\'t support them.</p>';
+            } else {
+                html += '<p class="text-gray-400 text-sm">Switch to Advanced Mode to configure these settings.</p>';
+            }
+        } else {
+            const output = outputSettings.outputSettings || {};
+            html += '<div class="space-y-3">';
+            html += `<div><label class="text-sm text-gray-400">Encoder</label><input type="text" value="${outputSettings.encoderName || 'N/A'}" class="w-full" readonly /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Video Encoder</label><input type="text" value="${outputSettings.videoEncoderId || 'N/A'}" class="w-full" readonly /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Audio Encoder</label><input type="text" value="${outputSettings.audioEncoderId || 'N/A'}" class="w-full" readonly /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Bitrate (kbps)</label><input type="number" id="obs-output-bitrate" value="${output.bitrate || output.videoBitrate || ''}" placeholder="e.g. 3500" class="w-full" /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Keyframe Interval (seconds)</label><input type="number" id="obs-output-keyframe" value="${output.keyint_sec || output.keyframeInterval || ''}" placeholder="e.g. 2" step="0.1" class="w-full" /></div>`;
+            html += `<div><label class="text-sm text-gray-400">Rate Control</label><select id="obs-output-rate-control" class="w-full"><option value="CBR" ${(output.rate_control || output.rateControl || 'CBR') === 'CBR' ? 'selected' : ''}>CBR</option><option value="VBR" ${(output.rate_control || output.rateControl) === 'VBR' ? 'selected' : ''}>VBR</option><option value="ABR" ${(output.rate_control || output.rateControl) === 'ABR' ? 'selected' : ''}>ABR</option></select></div>`;
+            html += `<div><label class="text-sm text-gray-400">Tune</label><select id="obs-output-tune" class="w-full"><option value="zerolatency" ${(output.tune || 'zerolatency') === 'zerolatency' ? 'selected' : ''}>zerolatency</option><option value="lowlatency" ${output.tune === 'lowlatency' ? 'selected' : ''}>lowlatency</option><option value="" ${!output.tune ? 'selected' : ''}>None</option></select></div>`;
+            html += '</div>';
+            html += '<p class="text-yellow-400 text-xs mt-2">Note: Some output settings may need to be set manually in OBS Settings → Output tab if the API doesn\'t support them.</p>';
+        }
+        html += '</div>';
+        
+        // Scene List
+        html += '<div class="modern-panel p-4">';
+        html += '<h3 class="text-lg font-semibold mb-3">Scenes</h3>';
+        if (sceneList.error) {
+            html += `<p class="text-red-400 text-sm">Error: ${sceneList.error}</p>`;
+        } else {
+            html += '<div class="space-y-2">';
+            if (sceneList.scenes && sceneList.scenes.length > 0) {
+                sceneList.scenes.forEach((scene, idx) => {
+                    const isCurrent = scene.sceneName === sceneList.currentProgramSceneName;
+                    html += `<div class="flex items-center gap-2 p-2 bg-slate-700/50 rounded ${isCurrent ? 'border border-blue-500' : ''}">`;
+                    html += `<span class="text-sm">${scene.sceneName}</span>`;
+                    if (isCurrent) html += '<span class="text-xs text-blue-400">(Current)</span>';
+                    html += `<span class="text-xs text-gray-400">(${scene.sceneIndex} sources)</span>`;
+                    html += '</div>';
+                });
+            } else {
+                html += '<p class="text-gray-400 text-sm">No scenes found</p>';
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+        
+        html += '</div>';
+        // Store the output name for saving
+        html += `<input type="hidden" id="obs-current-output-name" value="${outputName}" />`;
+        html += `<input type="hidden" id="obs-is-advanced-mode" value="${isAdvancedMode}" />`;
+        content.innerHTML = html;
+    } catch (error) {
+        content.innerHTML = `<p class="text-red-400">Error loading settings: ${error.message}</p>`;
+        console.error("Error loading OBS settings:", error);
+    }
+}
+
+// Close OBS Settings Modal
+function closeOBSSettingsModal() {
+    const modal = document.getElementById("obsSettingsModal");
+    if (modal) {
+        modal.classList.add("hidden");
+    }
+}
+
+// Save OBS Settings
+async function saveOBSSettings() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        showPopup("Please connect to OBS first");
+        return;
+    }
+    
+    try {
+        // Get video settings
+        const baseWidth = parseInt(document.getElementById("obs-video-base-width")?.value);
+        const baseHeight = parseInt(document.getElementById("obs-video-base-height")?.value);
+        const outputWidth = parseInt(document.getElementById("obs-video-output-width")?.value);
+        const outputHeight = parseInt(document.getElementById("obs-video-output-height")?.value);
+        const fps = parseInt(document.getElementById("obs-video-fps")?.value);
+        
+        // Convert FPS to numerator/denominator (common values use 1/1)
+        const fpsNumerator = fps || 30;
+        const fpsDenominator = 1;
+        
+        // Update video settings if values are provided
+        if (baseWidth && baseHeight && outputWidth && outputHeight && fps) {
+            try {
+                await sendOBSRequest("SetVideoSettings", {
+                    baseWidth,
+                    baseHeight,
+                    outputWidth,
+                    outputHeight,
+                    fpsNumerator: fpsNumerator,
+                    fpsDenominator: fpsDenominator
+                });
+                showPopup("Video settings updated!");
+            } catch (e) {
+                showPopup(`Error updating video settings: ${e.message}`);
+            }
+        }
+        
+        // Update stream service settings
+        const streamServer = document.getElementById("obs-stream-server")?.value;
+        const streamKey = document.getElementById("obs-stream-key")?.value;
+        if (streamServer !== undefined) {
+            try {
+                await sendOBSRequest("SetStreamServiceSettings", {
+                    streamServiceType: "rtmp_custom",
+                    streamServiceSettings: {
+                        server: streamServer,
+                        key: streamKey || ""
+                    }
+                });
+                showPopup("Stream service settings updated!");
+            } catch (e) {
+                showPopup(`Error updating stream settings: ${e.message}`);
+            }
+        }
+        
+        // Try to update output settings (may not be fully supported)
+        const outputName = document.getElementById("obs-current-output-name")?.value || "adv_stream";
+        const isAdvancedMode = document.getElementById("obs-is-advanced-mode")?.value === "true";
+        const outputBitrate = document.getElementById("obs-output-bitrate")?.value;
+        const outputKeyframe = document.getElementById("obs-output-keyframe")?.value;
+        const outputRateControl = document.getElementById("obs-output-rate-control")?.value;
+        const outputTune = document.getElementById("obs-output-tune")?.value;
+        
+        if (!isAdvancedMode) {
+            showPopup("Output settings can only be changed in Advanced Mode. Please switch OBS to Advanced Mode in Settings → Output.");
+            return;
+        }
+        
+        if (outputBitrate || outputKeyframe || outputRateControl || outputTune) {
+            try {
+                // Note: SetOutputSettings may not support all fields, but we'll try
+                const outputSettingsUpdate = {};
+                if (outputBitrate) outputSettingsUpdate.bitrate = parseInt(outputBitrate);
+                if (outputKeyframe) outputSettingsUpdate.keyint_sec = parseFloat(outputKeyframe);
+                if (outputRateControl) outputSettingsUpdate.rate_control = outputRateControl;
+                if (outputTune) outputSettingsUpdate.tune = outputTune;
+                
+                await sendOBSRequest("SetOutputSettings", {
+                    outputName: outputName,
+                    outputSettings: outputSettingsUpdate
+                });
+                showPopup("Output settings updated! (Note: Some settings may require OBS restart or manual configuration)");
+            } catch (e) {
+                showPopup(`Note: Output settings may need to be set manually in OBS Settings → Output tab. Error: ${e.message}`);
+            }
+        }
+        
+        // Refresh the modal to show updated values
+        setTimeout(() => {
+            openOBSSettingsModal();
+        }, 500);
+    } catch (error) {
+        showPopup(`Error saving settings: ${error.message}`);
+        console.error("Error saving OBS settings:", error);
+    }
+}
+
+// View required OBS settings
+async function viewRequiredOBSSettings() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        showPopup("Please connect to OBS first");
+        return;
+    }
+    
+    try {
+        const videoSettings = await sendOBSRequest("GetVideoSettings");
+        const streamSettings = await sendOBSRequest("GetStreamServiceSettings");
+        
+        const statusEl = document.getElementById("mg-obs-profile-status");
+        if (!statusEl) return;
+        
+        statusEl.innerHTML = `
+            <div class="text-sm space-y-2">
+                <p class="font-semibold">Current OBS Settings:</p>
+                <div class="modern-panel p-2">
+                    <p><strong>Video Settings:</strong></p>
+                    <p>Base Resolution: ${videoSettings.baseWidth}x${videoSettings.baseHeight}</p>
+                    <p>Output Resolution: ${videoSettings.outputWidth}x${videoSettings.outputHeight}</p>
+                    <p>FPS: ${videoSettings.fpsNumerator}/${videoSettings.fpsDenominator}</p>
+                </div>
+                <div class="modern-panel p-2">
+                    <p><strong>Stream Settings:</strong></p>
+                    <p>Service: ${streamSettings.streamServiceType || 'Not set'}</p>
+                    <p>Server: ${streamSettings.streamServiceSettings?.server || 'Not set'}</p>
+                    <p>Stream Key: ${streamSettings.streamServiceSettings?.key ? '***' + streamSettings.streamServiceSettings.key.slice(-4) : 'Not set'}</p>
+                </div>
+                <p class="text-yellow-400 text-xs mt-2">Note: Some settings (Bitrate, Keyframe Interval, Rate Control, Tune) must be checked manually in OBS Settings → Output tab.</p>
+            </div>
+        `;
+    } catch (error) {
+        showPopup(`Error viewing settings: ${error.message}`);
+        console.error("Error viewing OBS settings:", error);
+    }
+}
+
+// Set stream key and RTMP URL in OBS
+async function setOBSStreamKey(streamKey) {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        console.log("OBS not connected, skipping stream key setup");
+        return;
+    }
+    
+    try {
+        // Get the current region from settings (refresh to ensure latest value)
+        refreshCredentials();
+        const currentRegion = region || localStorage.getItem("region") || "na";
+        const rtmpServer = getRTMPURL(currentRegion);
+        const rtmpURL = `rtmp://${rtmpServer}/live`;
+        
+        console.log(`Setting OBS stream key with region: ${currentRegion}, server: ${rtmpServer}`);
+        
+        // First, get current stream service settings to preserve other settings
+        let currentSettings = {};
+        try {
+            const current = await sendOBSRequest("GetStreamServiceSettings");
+            if (current && current.streamServiceSettings) {
+                currentSettings = current.streamServiceSettings;
+            }
+        } catch (e) {
+            console.log("Could not get current stream settings, using defaults");
+        }
+        
+        // Update with new server and key - use rtmp_custom for Custom RTMP service
+        await sendOBSRequest("SetStreamServiceSettings", {
+            streamServiceType: "rtmp_custom",
+            streamServiceSettings: {
+                server: rtmpURL,
+                key: streamKey
+            }
+        });
+        
+        showPopup("Stream key and RTMP URL set in OBS successfully!");
+        console.log(`OBS stream settings updated: Server=${rtmpURL}, Key=${streamKey.substring(0, 10)}...`);
+        
+        // Verify the settings were applied
+        try {
+            const verify = await sendOBSRequest("GetStreamServiceSettings");
+            console.log("Verified OBS stream settings:", {
+                server: verify.streamServiceSettings?.server,
+                keySet: !!verify.streamServiceSettings?.key
+            });
+        } catch (e) {
+            console.log("Could not verify settings:", e);
+        }
+    } catch (error) {
+        console.error("Error setting OBS stream key:", error);
+        showPopup(`Warning: Could not set stream key in OBS: ${error.message}`);
+    }
+}
+
+// Start OBS streaming
+async function startOBSStream() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        showPopup("Please connect to OBS first");
+        return;
+    }
+    
+    const statusEl = document.getElementById("mg-obs-streaming-status");
+    const statusText = "Starting stream...";
+    if (statusEl) statusEl.textContent = statusText;
+    updateOBSPanelStreamingStatus(`<span class="text-blue-400">${statusText}</span>`);
+    
+    try {
+        await sendOBSRequest("StartStream", {});
+        const successHTML = '<span class="text-green-400">Stream start requested</span>';
+        if (statusEl) statusEl.innerHTML = successHTML;
+        updateOBSPanelStreamingStatus(successHTML);
+        showPopup("Stream start requested");
+    } catch (error) {
+        const errorHTML = `<span class="text-red-400">Error: ${error.message}</span>`;
+        if (statusEl) statusEl.innerHTML = errorHTML;
+        updateOBSPanelStreamingStatus(errorHTML);
+        showPopup(`Error starting stream: ${error.message}`);
+        console.error("Error starting OBS stream:", error);
+    }
+}
+
+// Stop OBS streaming
+async function stopOBSStream() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        showPopup("Please connect to OBS first");
+        return;
+    }
+    
+    const statusEl = document.getElementById("mg-obs-streaming-status");
+    const statusText = "Stopping stream...";
+    if (statusEl) statusEl.textContent = statusText;
+    updateOBSPanelStreamingStatus(`<span class="text-yellow-400">${statusText}</span>`);
+    
+    try {
+        await sendOBSRequest("StopStream", {});
+        const successHTML = '<span class="text-yellow-400">Stream stop requested</span>';
+        if (statusEl) statusEl.innerHTML = successHTML;
+        updateOBSPanelStreamingStatus(successHTML);
+        showPopup("Stream stop requested");
+    } catch (error) {
+        const errorHTML = `<span class="text-red-400">Error: ${error.message}</span>`;
+        if (statusEl) statusEl.innerHTML = errorHTML;
+        updateOBSPanelStreamingStatus(errorHTML);
+        showPopup(`Error stopping stream: ${error.message}`);
+        console.error("Error stopping OBS stream:", error);
+    }
+}
+
+// Get OBS streaming status
+async function getOBSStreamStatus() {
+    if (!obsWebSocket || obsWebSocket.readyState !== WebSocket.OPEN) {
+        showPopup("Please connect to OBS first");
+        return;
+    }
+    
+    const statusEl = document.getElementById("mg-obs-streaming-status");
+    const statusText = "Checking status...";
+    if (statusEl) statusEl.textContent = statusText;
+    updateOBSPanelStreamingStatus(`<span class="text-blue-400">${statusText}</span>`);
+    
+    try {
+        const response = await sendOBSRequest("GetStreamStatus", {});
+        
+        if (response && response.outputActive) {
+            const duration = response.totalStreamTime || 0;
+            const hours = Math.floor(duration / 3600);
+            const minutes = Math.floor((duration % 3600) / 60);
+            const seconds = duration % 60;
+            const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            const statusHTML = `
+                <div class="text-sm">
+                    <p class="font-semibold text-green-400">✓ Streaming Active</p>
+                    <p class="text-xs text-gray-300">Duration: ${timeStr}</p>
+                </div>
+            `;
+            
+            if (statusEl) {
+                statusEl.innerHTML = `
+                    <div class="modern-panel p-2">
+                        <p class="font-semibold text-green-400">Streaming Active</p>
+                        <p class="text-sm text-gray-300">Duration: ${timeStr}</p>
+                        <p class="text-sm text-gray-300">Output Active: Yes</p>
+                    </div>
+                `;
+            }
+            updateOBSPanelStreamingStatus(statusHTML);
+            showPopup(`Stream is active (${timeStr})`);
+        } else {
+            const statusHTML = `
+                <div class="text-sm">
+                    <p class="font-semibold text-gray-400">Stream Not Active</p>
+                </div>
+            `;
+            
+            if (statusEl) {
+                statusEl.innerHTML = `
+                    <div class="modern-panel p-2">
+                        <p class="font-semibold text-gray-400">Stream Not Active</p>
+                        <p class="text-sm text-gray-300">Output Active: No</p>
+                    </div>
+                `;
+            }
+            updateOBSPanelStreamingStatus(statusHTML);
+            showPopup("Stream is not active");
+        }
+    } catch (error) {
+        const errorHTML = `<span class="text-red-400 text-sm">Error: ${error.message}</span>`;
+        if (statusEl) statusEl.innerHTML = errorHTML;
+        updateOBSPanelStreamingStatus(errorHTML);
+        showPopup(`Error getting stream status: ${error.message}`);
+        console.error("Error getting OBS stream status:", error);
     }
 }
 
@@ -1303,15 +2722,28 @@ async function startMediaGateway() {
         if (gatewayResult.status === "success" && gatewayResult.data && gatewayResult.data.streamKey) {
             mediaGatewayStreamKey = gatewayResult.data.streamKey;
             document.getElementById("mg-stream-key").value = gatewayResult.data.streamKey;
+            
+            // Get the current region from settings (refresh to ensure latest value)
+            refreshCredentials();
+            const currentRegion = region || localStorage.getItem("region") || "na";
+            const rtmpServer = getRTMPURL(currentRegion);
+            const rtmpURL = `rtmp://${rtmpServer}/live`;
+            
+            console.log(`Created stream key with region: ${currentRegion}, server: ${rtmpServer}`);
+            
             document.getElementById("mg-status").innerHTML = `
                 <div class="modern-panel p-2">
                     <p class="font-semibold">Stream Key: ${gatewayResult.data.streamKey}</p>
                     <p class="text-sm text-gray-400">Channel: ${gatewayResult.data.channel}</p>
                     <p class="text-sm text-gray-400">UID: ${gatewayResult.data.uid}</p>
                     <p class="text-sm text-gray-400">Expires: ${gatewayResult.data.expiresAfter === 0 ? 'Never' : gatewayResult.data.expiresAfter + ' seconds'}</p>
-                    <p class="text-xs text-gray-500 mt-2">Use in OBS: Server: rtmp://rtmp.agora.io/live, Key: ${gatewayResult.data.streamKey}</p>
+                    <p class="text-xs text-gray-500 mt-2">OBS Settings: Server: ${rtmpURL}, Key: ${gatewayResult.data.streamKey}</p>
                 </div>
             `;
+            
+            // Automatically set stream key in OBS if connected
+            await setOBSStreamKey(gatewayResult.data.streamKey);
+            
             showPopup("Media Gateway streaming key created successfully!");
         } else {
             showPopup(`Error: ${gatewayResult.message || "Failed to create streaming key"}`);
@@ -1390,7 +2822,7 @@ async function queryMediaGateway() {
     try {
         refreshCredentials();
         // Media Gateway requires region in the path
-        const response = await proxyFetch(`https://api.agora.io/${region}/api/v1/projects/${appid}/rtls/ingress/streamkeys/${encodeURIComponent(keyInput)}`, {
+        const response = await proxyFetch(`https://api.agora.io/${region}/v1/projects/${appid}/rtls/ingress/streamkeys/${encodeURIComponent(keyInput)}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
@@ -1444,7 +2876,7 @@ async function destroyMediaGateway() {
     try {
         refreshCredentials();
         // Media Gateway requires region in the path
-        const response = await proxyFetch(`https://api.agora.io/${region}/api/v1/projects/${appid}/rtls/ingress/streamkeys/${encodeURIComponent(keyInput)}`, {
+        const response = await proxyFetch(`https://api.agora.io/${region}/v1/projects/${appid}/rtls/ingress/streamkeys/${encodeURIComponent(keyInput)}`, {
             method: "DELETE",
             headers: {
                 "Content-Type": "application/json",
@@ -1710,7 +3142,7 @@ async function setGlobalMediaGatewayTemplate() {
     responseEl.textContent = "Setting global Media Gateway template...";
     
     try {
-        const response = await proxyFetch(`https://api.agora.io/${region}/api/v1/projects/${appid}/rtls/ingress/stream-templates/${encodeURIComponent(templateId)}/global`, {
+        const response = await proxyFetch(`https://api.agora.io/${region}/v1/projects/${appid}/rtls/ingress/stream-templates/${encodeURIComponent(templateId)}/global`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
@@ -1844,7 +3276,7 @@ async function forceDisconnectStream() {
     responseEl.textContent = "Force disconnecting stream...";
     
     try {
-        const response = await proxyFetch(`https://api.agora.io/${region}/api/v1/projects/${appid}/rtls/ingress/streams/${encodeURIComponent(streamId)}/disconnect`, {
+        const response = await proxyFetch(`https://api.agora.io/${region}v1/projects/${appid}/rtls/ingress/streams/${encodeURIComponent(streamId)}/disconnect`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -3676,6 +5108,15 @@ window.addEventListener("load", () => {
             document.getElementById("appCertificate").value = appCertificate;
         }
         document.getElementById("region").value = region;
+    }
+    
+    // Load saved OBS WebSocket password
+    const savedPassword = localStorage.getItem("obsWebSocketPassword");
+    if (savedPassword) {
+        const mgPassword = document.getElementById("mg-obs-password");
+        const panelPassword = document.getElementById("obs-panel-password");
+        if (mgPassword) mgPassword.value = savedPassword;
+        if (panelPassword) panelPassword.value = savedPassword;
     }
     
     // Setup Media Gateway template checkbox toggles

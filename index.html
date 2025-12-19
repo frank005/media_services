@@ -67,6 +67,50 @@
             height: 1.25rem;
             color: white;
         }
+        /* Draggable OBS Preview PIP */
+        #obs-preview-pip {
+            position: fixed;
+            width: 480px;
+            height: 270px;
+            background: #000;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            z-index: 9999;
+            cursor: move;
+            display: none;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+        #obs-preview-pip.dragging {
+            cursor: grabbing;
+        }
+        #obs-preview-pip img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        #obs-preview-pip .pip-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            z-index: 10;
+        }
+        #obs-preview-pip .pip-close {
+            cursor: pointer;
+            color: #fff;
+            font-weight: bold;
+            padding: 0 4px;
+        }
+        #obs-preview-pip .pip-close:hover {
+            color: #ef4444;
+        }
     </style>
 </head>
 <body class="text-white min-h-screen">
@@ -77,9 +121,14 @@
         <!-- Header -->
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold gradient-text-primary">Agora Media Services Demo</h1>
-            <button onclick="toggleAuthPopup()" class="modern-btn modern-btn-secondary">
-                Set API Credentials
-            </button>
+            <div class="flex gap-2">
+                <button onclick="toggleOBSControlPanel()" class="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded" id="obs-panel-toggle-btn" data-tooltip="Toggle OBS Controls">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                </button>
+                <button onclick="toggleAuthPopup()" class="modern-btn modern-btn-secondary">
+                    Set API Credentials
+                </button>
+            </div>
         </div>
         
         <!-- Video Players (Above all tabs) -->
@@ -136,6 +185,66 @@
                     </div>
                     <div id="audience-status" class="text-sm text-gray-400"></div>
                 </div>
+            </div>
+        </div>
+
+        <!-- OBS Preview PIP (Draggable) -->
+        <div id="obs-preview-pip">
+            <div class="pip-header">
+                <span>OBS Preview</span>
+                <span class="pip-close" onclick="toggleOBSPreviewPIP()">✕</span>
+            </div>
+            <div id="obs-preview-pip-content"></div>
+        </div>
+
+        <!-- OBS Icon Control Bar -->
+        <div id="obs-control-panel" class="mb-4 hidden">
+            <div class="flex items-center gap-2 p-2.5 bg-slate-800/50 rounded-lg border border-slate-700 min-h-[48px]">
+                <!-- OBS Preview/Status -->
+                <div id="obs-preview" class="w-20 h-12 bg-black rounded flex flex-col items-center justify-center text-gray-400 text-xs p-1 cursor-pointer hover:border-blue-500 border-2 border-transparent" onclick="toggleOBSPreviewPIP()" data-tooltip="Click to open video preview">
+                    <div class="text-[10px]">OBS</div>
+                </div>
+                <div id="obs-preview-status" class="text-xs text-gray-400 w-24"></div>
+                
+                <!-- Password Input - Very Compact -->
+                <input id="obs-panel-password" type="password" placeholder="OBS Server Pwd" class="w-[40px] px-1 py-1 text-xs h-10 bg-slate-700 border border-slate-600 rounded" data-tooltip="OBS WebSocket password" />
+                
+                <!-- Connection Icons -->
+                <button onclick="connectOBSFromPanel()" class="w-12 h-10 flex items-center justify-center bg-green-600 hover:bg-green-700 rounded transition-colors" data-tooltip="Connect to OBS">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                </button>
+                <button onclick="disconnectOBS()" class="w-12 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 rounded transition-colors" data-tooltip="Disconnect from OBS">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+                <div id="obs-panel-status" class="text-xs text-gray-400 min-w-[80px] max-w-[120px] overflow-hidden text-ellipsis"></div>
+                
+                <!-- Streaming Icons -->
+                <button onclick="startOBSStream()" class="w-12 h-10 flex items-center justify-center bg-green-600 hover:bg-green-700 rounded transition-colors" data-tooltip="Start OBS Stream">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle></svg>
+                </button>
+                <button onclick="stopOBSStream()" class="w-12 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 rounded transition-colors" data-tooltip="Stop OBS Stream">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"></rect></svg>
+                </button>
+                <button onclick="getOBSStreamStatus()" class="w-12 h-10 flex items-center justify-center bg-slate-600 hover:bg-slate-700 rounded transition-colors" data-tooltip="Check Stream Status">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+                <div id="obs-panel-streaming-status" class="text-xs text-gray-400 min-w-[80px] max-w-[120px] overflow-hidden text-ellipsis"></div>
+                
+                <!-- Profile Icons -->
+                <select id="obs-panel-profile" class="w-28 px-2 py-1 text-xs h-10 bg-slate-700 border border-slate-600 rounded" data-tooltip="Select OBS Profile" onchange="handleProfileSelectChange(this)">
+                    <option value="">Profile...</option>
+                    <option value="__create_new__">+ Create New</option>
+                </select>
+                <input id="obs-panel-new-profile-name" type="text" placeholder="Name (Enter)" class="hidden w-20 px-1.5 py-1 text-xs h-10 bg-slate-700 border border-slate-600 rounded" onkeypress="if(event.key==='Enter') updateOBSProfile()" title="Enter profile name and press Enter or click Update" />
+                <button onclick="listOBSProfiles()" class="w-12 h-10 flex items-center justify-center bg-slate-600 hover:bg-slate-700 rounded transition-colors" data-tooltip="Refresh Profiles">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </button>
+                <button onclick="updateOBSProfile()" class="w-12 h-10 flex items-center justify-center bg-green-600 hover:bg-green-700 rounded transition-colors" data-tooltip="Update Profile Settings">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                </button>
+                <button onclick="openOBSSettingsModal()" class="w-12 h-10 flex items-center justify-center bg-slate-600 hover:bg-slate-700 rounded transition-colors" data-tooltip="OBS Settings">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
             </div>
         </div>
 
@@ -274,21 +383,29 @@
                         <div class="modern-panel">
                             <h3 class="font-semibold mb-2">OBS WebSocket Setup</h3>
                             <ol class="text-sm space-y-1 list-decimal list-inside text-gray-300">
-                                <li>Install OBS Studio</li>
-                                <li>Open OBS → Tools → WebSocket Server Settings</li>
-                                <li>Enable WebSocket Server</li>
-                                <li>Set Server Port to 4455</li>
-                                <li>Enable Authentication</li>
-                                <li>Set a custom Server Password</li>
+                                <li>Install the latest version of OBS Studio</li>
+                                <li>Open OBS on this computer</li>
+                                <li>In the OBS Menu bar, click Tools → WebSocket Server Settings</li>
+                                <li>Check Enable WebSocket Server</li>
+                                <li>Ensure Server Port is set to "4455"</li>
+                                <li>Check Enable Authentication</li>
+                                <li>Enter a new Server Password manually, do not generate a random one. Make sure to hit "Apply" after setting your custom password.</li>
+                                <li>Use the OBS Control Bar at the top of this page to connect to OBS</li>
                             </ol>
-                            <input id="mg-obs-password" type="password" placeholder="OBS WebSocket Password" class="mt-2" />
-                            <input id="mg-obs-port" type="number" placeholder="OBS WebSocket Port" value="4455" class="mt-2" />
-                            <div class="grid grid-cols-2 gap-2 mt-2">
-                                <button onclick="connectOBS()" class="modern-btn modern-btn-success">Connect to OBS</button>
-                                <button onclick="disconnectOBS()" class="modern-btn modern-btn-danger">Disconnect</button>
+                            <div class="mt-4 p-3 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+                                <p class="text-sm text-blue-300 mb-2">
+                                    <strong>📌 Connect to OBS:</strong> Use the OBS Control Bar at the top of this page (above the tabs) to enter your password and connect to OBS Studio.
+                                </p>
+                                <button onclick="document.getElementById('obs-control-panel')?.classList.remove('hidden'); document.getElementById('obs-panel-password')?.focus(); window.scrollTo({ top: 0, behavior: 'smooth' });" class="modern-btn modern-btn-primary text-sm">
+                                    Go to OBS Control Bar ↑
+                                </button>
                             </div>
-                            <div id="mg-obs-status" class="mt-2 text-sm"></div>
+                            <div id="mg-obs-status" class="mt-2 text-sm hidden"></div>
+                            <div id="mg-obs-connection-status" class="mt-2 text-sm hidden"></div>
                         </div>
+                        <!-- OBS Profile and Streaming controls moved to icon control bar above -->
+                        <div id="mg-obs-profile-section" class="hidden"></div>
+                        <div id="mg-obs-streaming-section" class="hidden"></div>
                         <input id="mg-channel" type="text" placeholder="Channel Name" value="testChannel" />
                         <input id="mg-uid" type="text" placeholder="UID (optional)" />
                         <div class="flex gap-2">
@@ -446,6 +563,24 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OBS Settings Modal -->
+    <div id="obsSettingsModal" class="hidden fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="modern-card w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4 pb-4 border-b border-slate-700/50">
+                <h2 class="text-xl font-bold gradient-text-primary">OBS Settings</h2>
+                <button onclick="closeOBSSettingsModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="obs-settings-content" class="space-y-4">
+                <p class="text-gray-400">Loading settings...</p>
+            </div>
+            <div class="mt-6 flex gap-2 justify-end">
+                <button onclick="openOBSSettingsModal()" class="modern-btn modern-btn-secondary" title="Refresh settings from OBS">🔄 Refresh</button>
+                <button onclick="closeOBSSettingsModal()" class="modern-btn modern-btn-secondary">Close</button>
+                <button onclick="saveOBSSettings()" class="modern-btn modern-btn-primary">Save Settings</button>
             </div>
         </div>
     </div>
