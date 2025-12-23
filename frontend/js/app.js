@@ -5278,9 +5278,139 @@ function copyMPUpdateJSON() {
 // Media Push Copy JSON Functions
 function copyMPushStartJSON() {
     try {
-        // This would need to collect all the Media Push form data
-        // For now, show a message
-        showPopup("Media Push Start JSON - implementation needed based on form structure");
+        const mode = document.getElementById("mps-mode").value;
+        const channel = document.getElementById("mps-channel").value;
+        const name = document.getElementById("mps-name").value;
+        const uid = document.getElementById("mps-uid").value || "444";
+        const token = document.getElementById("mps-token").value;
+        const destination = document.getElementById("mps-destination").value;
+        const regionHintIp = document.getElementById("mps-region-hint-ip").value;
+        const idleTimeout = document.getElementById("mps-idle-timeout").value;
+        const jitterBufferSizeMs = document.getElementById("mps-jitter-buffer").value;
+        
+        // Build RTMP URL based on destination
+        let rtmpUrl = "";
+        if (destination === "facebook") {
+            const fbUrl = document.getElementById("mps-fb-url").value;
+            const fbKey = document.getElementById("mps-fb-key").value;
+            if (fbUrl && fbKey) {
+                rtmpUrl = fbUrl + "/" + fbKey;
+            }
+        } else if (destination === "youtube") {
+            const ytUrl = document.getElementById("mps-yt-url").value;
+            const ytKey = document.getElementById("mps-yt-key").value;
+            if (ytUrl && ytKey) {
+                rtmpUrl = ytUrl + "/" + ytKey;
+            }
+        } else if (destination === "custom") {
+            const customUrl = document.getElementById("mps-custom-url").value;
+            const customKey = document.getElementById("mps-custom-key").value;
+            if (customUrl && customKey) {
+                rtmpUrl = customUrl + "/" + customKey;
+            }
+        }
+        
+        const body = {
+            converter: {
+                rtmpUrl: rtmpUrl
+            }
+        };
+        
+        // Add optional name
+        if (name) {
+            body.converter.name = name;
+        } else {
+            body.converter.name = `Converter_${Date.now()}`;
+        }
+        
+        // Add optional fields
+        if (idleTimeout) {
+            body.converter.idleTimeout = parseInt(idleTimeout);
+        }
+        if (jitterBufferSizeMs) {
+            const jitter = parseInt(jitterBufferSizeMs);
+            if (jitter >= 0 && jitter <= 1000) {
+                body.converter.jitterBufferSizeMs = jitter;
+            }
+        }
+        
+        if (mode === "raw") {
+            // Non-transcoded mode (rawOptions)
+            body.converter.rawOptions = {
+                rtcChannel: channel,
+                rtcStreamUid: uid ? parseInt(uid) : 0
+            };
+            if (token) body.converter.rawOptions.rtcToken = token;
+        } else {
+            // Transcoded mode (transcodeOptions)
+            const canvasWidth = parseInt(document.getElementById("mps-canvas-width").value) || 640;
+            const canvasHeight = parseInt(document.getElementById("mps-canvas-height").value) || 360;
+            const videoBitrate = parseInt(document.getElementById("mps-video-bitrate").value) || 800;
+            const videoFramerate = parseInt(document.getElementById("mps-video-framerate").value) || 15;
+            const audioCodecProfile = document.getElementById("mps-audio-codec-profile").value;
+            const audioSampleRate = parseInt(document.getElementById("mps-audio-sample-rate").value) || 48000;
+            const audioBitrate = parseInt(document.getElementById("mps-audio-bitrate").value) || 48;
+            const audioChannels = parseInt(document.getElementById("mps-audio-channels").value) || 1;
+            
+            body.converter.transcodeOptions = {
+                rtcChannel: channel,
+                audioOptions: {
+                    codecProfile: audioCodecProfile,
+                    sampleRate: audioSampleRate,
+                    bitrate: audioBitrate,
+                    audioChannels: audioChannels
+                },
+                videoOptions: {
+                    canvas: { width: canvasWidth, height: canvasHeight },
+                    bitrate: videoBitrate,
+                    frameRate: videoFramerate,
+                    codec: document.getElementById("mps-video-codec").value,
+                    codecProfile: document.getElementById("mps-video-codec-profile").value
+                }
+            };
+            
+            if (token) body.converter.transcodeOptions.rtcToken = token;
+            
+            const audioStreamUids = document.getElementById("mps-audio-stream-uids").value;
+            if (audioStreamUids) {
+                body.converter.transcodeOptions.audioOptions.rtcStreamUids = audioStreamUids.split(",").map(uid => parseInt(uid.trim())).filter(uid => !isNaN(uid));
+            }
+            
+            const layoutType = parseInt(document.getElementById("mps-layout-type").value) || 0;
+            if (layoutType === 1) {
+                body.converter.transcodeOptions.videoOptions.layoutType = 1;
+                const maxResolutionUid = document.getElementById("mps-vertical-max-uid").value;
+                if (maxResolutionUid) {
+                    body.converter.transcodeOptions.videoOptions.vertical = {
+                        maxResolutionUid: parseInt(maxResolutionUid),
+                        fillMode: document.getElementById("mps-vertical-fill-mode").value,
+                        refreshIntervalSec: parseInt(document.getElementById("mps-vertical-refresh").value) || 4
+                    };
+                }
+            } else if (uid) {
+                body.converter.transcodeOptions.videoOptions.layout = [{
+                    rtcStreamUid: parseInt(uid),
+                    region: { xPos: 0, yPos: 0, zIndex: 1, width: canvasWidth, height: canvasHeight }
+                }];
+            }
+            
+            const placeholderImage = document.getElementById("mps-placeholder-image").value;
+            if (placeholderImage) {
+                body.converter.transcodeOptions.videoOptions.defaultPlaceholderImageUrl = placeholderImage;
+            }
+            
+            const videoGop = document.getElementById("mps-video-gop").value;
+            if (videoGop) {
+                body.converter.transcodeOptions.videoOptions.gop = parseInt(videoGop);
+            }
+            
+            const canvasColor = document.getElementById("mps-canvas-color").value;
+            if (canvasColor) {
+                body.converter.transcodeOptions.videoOptions.canvas.color = parseInt(canvasColor.replace("#", ""), 16) || 0;
+            }
+        }
+        
+        showJSONModal('Media Push Start JSON', body);
     } catch (error) {
         showPopup(`Error showing JSON: ${error.message}`);
     }
@@ -5288,7 +5418,105 @@ function copyMPushStartJSON() {
 
 function copyMPushUpdateJSON() {
     try {
-        showPopup("Media Push Update JSON - implementation needed based on form structure");
+        const destination = document.getElementById("mps-destination").value;
+        
+        // Build RTMP URL based on destination
+        let rtmpUrl = "";
+        if (destination === "facebook") {
+            const fbUrl = document.getElementById("mps-fb-url").value;
+            const fbKey = document.getElementById("mps-fb-key").value;
+            if (fbUrl && fbKey) {
+                rtmpUrl = fbUrl + "/" + fbKey;
+            }
+        } else if (destination === "youtube") {
+            const ytUrl = document.getElementById("mps-yt-url").value;
+            const ytKey = document.getElementById("mps-yt-key").value;
+            if (ytUrl && ytKey) {
+                rtmpUrl = ytUrl + "/" + ytKey;
+            }
+        } else if (destination === "custom") {
+            const customUrl = document.getElementById("mps-custom-url").value;
+            const customKey = document.getElementById("mps-custom-key").value;
+            if (customUrl && customKey) {
+                rtmpUrl = customUrl + "/" + customKey;
+            }
+        }
+        
+        // Build update body - only include updateable fields
+        const body = {
+            converter: {}
+        };
+        
+        const fields = [];
+        
+        // RTMP URL is always updateable
+        if (rtmpUrl) {
+            body.converter.rtmpUrl = rtmpUrl;
+            fields.push("rtmpUrl");
+        }
+        
+        // Video options are updateable (but not codec/codecProfile)
+        const mode = document.getElementById("mps-mode").value;
+        if (mode === "transcoded") {
+            body.converter.transcodeOptions = {
+                videoOptions: {}
+            };
+            
+            const canvasWidth = document.getElementById("mps-canvas-width").value;
+            const canvasHeight = document.getElementById("mps-canvas-height").value;
+            const canvasColor = document.getElementById("mps-canvas-color").value;
+            
+            if (canvasWidth || canvasHeight || canvasColor) {
+                body.converter.transcodeOptions.videoOptions.canvas = {};
+                if (canvasWidth) body.converter.transcodeOptions.videoOptions.canvas.width = parseInt(canvasWidth);
+                if (canvasHeight) body.converter.transcodeOptions.videoOptions.canvas.height = parseInt(canvasHeight);
+                if (canvasColor) body.converter.transcodeOptions.videoOptions.canvas.color = parseInt(canvasColor.replace("#", ""), 16) || 0;
+                fields.push("transcodeOptions.videoOptions.canvas");
+            }
+            
+            const videoBitrate = document.getElementById("mps-video-bitrate").value;
+            const videoFramerate = document.getElementById("mps-video-framerate").value;
+            const videoGop = document.getElementById("mps-video-gop").value;
+            const placeholderImage = document.getElementById("mps-placeholder-image").value;
+            
+            if (videoBitrate) {
+                body.converter.transcodeOptions.videoOptions.bitrate = parseInt(videoBitrate);
+                fields.push("transcodeOptions.videoOptions.bitrate");
+            }
+            if (videoFramerate) {
+                body.converter.transcodeOptions.videoOptions.frameRate = parseInt(videoFramerate);
+                fields.push("transcodeOptions.videoOptions.frameRate");
+            }
+            if (videoGop) {
+                body.converter.transcodeOptions.videoOptions.gop = parseInt(videoGop);
+                fields.push("transcodeOptions.videoOptions.gop");
+            }
+            if (placeholderImage) {
+                body.converter.transcodeOptions.videoOptions.defaultPlaceholderImageUrl = placeholderImage;
+                fields.push("transcodeOptions.videoOptions.defaultPlaceholderImageUrl");
+            }
+            
+            // Vertical layout options (only for vertical layout)
+            const layoutType = parseInt(document.getElementById("mps-layout-type").value) || 0;
+            if (layoutType === 1) {
+                const maxResolutionUid = document.getElementById("mps-vertical-max-uid").value;
+                if (maxResolutionUid) {
+                    body.converter.transcodeOptions.videoOptions.vertical = {
+                        maxResolutionUid: parseInt(maxResolutionUid),
+                        fillMode: document.getElementById("mps-vertical-fill-mode").value,
+                        refreshIntervalSec: parseInt(document.getElementById("mps-vertical-refresh").value) || 4
+                    };
+                    fields.push("transcodeOptions.videoOptions.vertical");
+                }
+            }
+        }
+        
+        // Add fields parameter
+        if (fields.length > 0) {
+            body.fields = fields.join(",");
+        }
+        
+        showJSONModal('Media Push Update JSON', body);
     } catch (error) {
         showPopup(`Error showing JSON: ${error.message}`);
     }
