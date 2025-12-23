@@ -373,6 +373,7 @@ async function startMediaPull() {
     const channel = document.getElementById("mp-channel").value;
     const uid = document.getElementById("mp-uid").value;
     const token = document.getElementById("mp-token").value;
+    const repeatTime = document.getElementById("mp-repeat-time").value;
     
     if (!url || !channel) {
         showPopup("URL and Channel Name are required");
@@ -392,6 +393,14 @@ async function startMediaPull() {
     };
     
     if (token) body.player.token = token;
+    
+    // Add repeatTime if provided (optional, default is 1)
+    if (repeatTime) {
+        const repeatTimeInt = parseInt(repeatTime);
+        if (repeatTimeInt !== 0) {  // Cannot be 0
+            body.player.repeatTime = repeatTimeInt;
+        }
+    }
     
     try {
         const region = localStorage.getItem("region") || "na";
@@ -5237,18 +5246,28 @@ function copyCTUpdateJSON() {
 // Media Pull Copy JSON Functions  
 function copyMPStartJSON() {
     try {
+        const url = document.getElementById("mp-url").value;
+        const channel = document.getElementById("mp-channel").value;
+        const uid = document.getElementById("mp-uid").value;
+        const token = document.getElementById("mp-token").value;
+        const repeatTime = document.getElementById("mp-repeat-time").value;
+        
         const player = {
-            streamUrl: document.getElementById("mp-stream-url").value,
-            channelName: document.getElementById("mp-channel").value,
-            uid: parseInt(document.getElementById("mp-uid").value) || 666,
-            idleTimeout: parseInt(document.getElementById("mp-idle-timeout").value) || 300,
-            audioOptions: {
-                volume: parseInt(document.getElementById("mp-volume").value) || 100
-            }
+            streamUrl: url,
+            channelName: channel,
+            name: `Player_${Date.now()}`,
+            uid: parseInt(uid) || 666
         };
         
-        const token = document.getElementById("mp-token").value;
         if (token) player.token = token;
+        
+        // Add repeatTime if provided (optional, default is 1)
+        if (repeatTime) {
+            const repeatTimeInt = parseInt(repeatTime);
+            if (repeatTimeInt !== 0) {  // Cannot be 0
+                player.repeatTime = repeatTimeInt;
+            }
+        }
         
         const body = { player };
         showJSONModal('Media Pull Start JSON', body);

@@ -288,6 +288,7 @@
                             <input id="mp-token" type="text" placeholder="Token (optional)" class="flex-1" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Set uid to the player UID when generating the token" />
                             <button onclick="generateToken('mp')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC token for the Media Pull player using the configured UID">Generate</button>
                         </div>
+                        <input id="mp-repeat-time" type="number" placeholder="Repeat Time (1=once, -1=loop, N=play N times)" value="1" data-tooltip="Number of media streams played. 1 = play once (default), -1 = loop infinitely, N = play N times. Cannot be 0. Applies only to on-demand streams." />
                         <div class="grid grid-cols-2 gap-2">
                             <div class="flex gap-2">
                                 <button onclick="startMediaPull()" class="modern-btn modern-btn-success flex-1" data-tooltip="Start a new Media Pull task to pull an external video stream into the RTC channel">Start Media Pull</button>
