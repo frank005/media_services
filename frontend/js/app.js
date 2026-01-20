@@ -3599,7 +3599,32 @@ function toggleOutputType(outputId, type) {
     }
 }
 
-function generateTokenForOutput(outputId) {
+// Generate RTC token helper function
+async function generateRtcToken(channel, uid) {
+    if (!appid || appid.trim() === "") {
+        throw new Error("App ID is required. Please set API credentials first.");
+    }
+    if (!appCertificate || appCertificate.trim() === "") {
+        throw new Error("App Certificate is required for token generation. Please set it in API Credentials.");
+    }
+    
+    const TOKEN_EXPIRE = 1800; // 30 minutes in seconds
+    const PRIVILEGE_EXPIRE = 1800; // 30 minutes in seconds
+    
+    const token = await RtcTokenBuilder.buildTokenWithUid(
+        appid,
+        appCertificate,
+        channel,
+        uid,
+        RtcRole.PUBLISHER,
+        TOKEN_EXPIRE,
+        PRIVILEGE_EXPIRE
+    );
+    
+    return token;
+}
+
+async function generateTokenForOutput(outputId) {
     const outputDiv = document.getElementById(outputId);
     const channelInput = outputDiv.querySelector('.output-channel');
     const uidInput = outputDiv.querySelector('.output-uid');
@@ -3614,7 +3639,7 @@ function generateTokenForOutput(outputId) {
     const uid = parseInt(uidInput.value) || 999;
     
     try {
-        const token = generateRtcToken(channel, uid);
+        const token = await generateRtcToken(channel, uid);
         if (tokenInput) {
             tokenInput.value = token;
             showPopup("Token generated successfully!");
