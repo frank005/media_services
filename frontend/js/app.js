@@ -3285,7 +3285,7 @@ async function forceDisconnectStream() {
     responseEl.textContent = "Force disconnecting stream...";
     
     try {
-        const response = await proxyFetch(`https://api.agora.io/${region}v1/projects/${appid}/rtls/ingress/streams/${encodeURIComponent(streamId)}/disconnect`, {
+        const response = await proxyFetch(`https://api.agora.io/${region}/v1/projects/${appid}/rtls/ingress/streams/${encodeURIComponent(streamId)}/disconnect`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -3397,7 +3397,10 @@ function addAudioInput() {
         <div class="audio-rtc-fields">
             <input type="text" class="audio-channel" placeholder="RTC Channel" value="testChannel" data-tooltip="The Agora RTC channel name where the audio stream is published" />
             <input type="number" class="audio-uid" placeholder="RTC UID" value="${1001 + existingInputs.length}" data-tooltip="The UID of the user publishing the audio stream in the RTC channel. Must be a valid number and not 0." />
-            <input type="text" class="audio-token" placeholder="RTC Token (optional)" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Set uid to 0 when generating the token." />
+            <div class="flex gap-2">
+                <input type="text" class="audio-token flex-1" placeholder="RTC Token (optional)" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Generate with uid 0 for input tokens." />
+                <button type="button" onclick="generateTokenForAudioInput('${inputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC input token using uid 0 (required by Agora for input rtcToken)">Generate</button>
+            </div>
         </div>
         <div class="audio-cdn-fields" style="display: none;">
             <input type="text" class="audio-stream-url" placeholder="CDN Stream URL" data-tooltip="The URL of the CDN audio source stream" />
@@ -3494,8 +3497,11 @@ function addVideoInput() {
         <div class="video-rtc-fields">
             <input type="text" class="video-channel" placeholder="RTC Channel" value="testChannel" data-tooltip="The Agora RTC channel name where the video stream is published" />
             <input type="number" class="video-uid" placeholder="RTC UID" value="${1001 + existingInputs.length}" data-tooltip="The UID of the user publishing the video stream in the RTC channel. Must be a valid number and not 0." />
-            <input type="text" class="video-token" placeholder="RTC Token (optional)" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Set uid to 0 when generating the token." />
-            <input type="text" class="video-placeholder-url" placeholder="Placeholder Image URL (optional)" data-tooltip="URL of the placeholder image displayed when the user is offline. Must be a valid image URL with jpg or png suffix." />
+            <div class="flex gap-2">
+                <input type="text" class="video-token flex-1" placeholder="RTC Token (optional)" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Generate with uid 0 for input tokens." />
+                <button type="button" onclick="generateTokenForVideoInput('${inputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC input token using uid 0 (required by Agora for input rtcToken)">Generate</button>
+            </div>
+            <input type="text" class="video-placeholder-url" placeholder="Placeholder Image URL (optional)" data-tooltip="URL of the placeholder image displayed when the user is offline. Falls back to the global default placeholder if empty." />
         </div>
         <div class="video-cdn-fields" style="display: none;">
             <input type="text" class="video-stream-url" placeholder="CDN Stream URL" data-tooltip="The URL of the CDN video source stream" />
@@ -3575,6 +3581,10 @@ function addOutput() {
             <option value="">None (transcode)</option>
             <option value="RAW">RAW (no transcoding)</option>
         </select>
+        <label class="flex items-center gap-2 mt-2">
+            <input type="checkbox" class="output-low-bitrate-hq" />
+            <span class="text-sm">Low bitrate, high quality</span>
+        </label>
     `;
     container.appendChild(outputDiv);
     // Re-initialize tooltips for the new element
@@ -3600,7 +3610,7 @@ function toggleOutputType(outputId, type) {
 }
 
 // Generate RTC token helper function
-async function generateRtcToken(channel, uid) {
+async function generateRtcToken(channel, uid, role = RtcRole.PUBLISHER) {
     if (!appid || appid.trim() === "") {
         throw new Error("App ID is required. Please set API credentials first.");
     }
@@ -3616,12 +3626,16 @@ async function generateRtcToken(channel, uid) {
         appCertificate,
         channel,
         uid,
-        RtcRole.PUBLISHER,
+        role,
         TOKEN_EXPIRE,
         PRIVILEGE_EXPIRE
     );
     
     return token;
+}
+
+async function generateRtcInputToken(channel) {
+    return generateRtcToken(channel, 0, RtcRole.SUBSCRIBER);
 }
 
 async function generateTokenForOutput(outputId) {
@@ -3643,6 +3657,48 @@ async function generateTokenForOutput(outputId) {
         if (tokenInput) {
             tokenInput.value = token;
             showPopup("Token generated successfully!");
+        }
+    } catch (error) {
+        showPopup(`Error generating token: ${error.message}`);
+    }
+}
+
+async function generateTokenForAudioInput(inputId) {
+    const inputDiv = document.getElementById(inputId);
+    const channelInput = inputDiv.querySelector('.audio-channel');
+    const tokenInput = inputDiv.querySelector('.audio-token');
+    
+    if (!channelInput || !channelInput.value) {
+        showPopup("Please enter a channel name first");
+        return;
+    }
+    
+    try {
+        const token = await generateRtcInputToken(channelInput.value);
+        if (tokenInput) {
+            tokenInput.value = token;
+            showPopup("Input token generated with uid 0");
+        }
+    } catch (error) {
+        showPopup(`Error generating token: ${error.message}`);
+    }
+}
+
+async function generateTokenForVideoInput(inputId) {
+    const inputDiv = document.getElementById(inputId);
+    const channelInput = inputDiv.querySelector('.video-channel');
+    const tokenInput = inputDiv.querySelector('.video-token');
+    
+    if (!channelInput || !channelInput.value) {
+        showPopup("Please enter a channel name first");
+        return;
+    }
+    
+    try {
+        const token = await generateRtcInputToken(channelInput.value);
+        if (tokenInput) {
+            tokenInput.value = token;
+            showPopup("Input token generated with uid 0");
         }
     } catch (error) {
         showPopup(`Error generating token: ${error.message}`);
@@ -3773,6 +3829,7 @@ function collectVideoInputs() {
     const container = document.getElementById('ct-video-inputs-container');
     const videoInputDivs = container.querySelectorAll('[id^="video-input-"]');
     const videoInputs = [];
+    const defaultPlaceholderUrl = document.getElementById('ct-placeholder-image')?.value?.trim() || '';
     
     videoInputDivs.forEach(div => {
         const type = div.querySelector('.video-input-type').value;
@@ -3786,7 +3843,7 @@ function collectVideoInputs() {
             const channel = div.querySelector('.video-channel').value;
             const uid = parseInt(div.querySelector('.video-uid').value);
             const token = div.querySelector('.video-token').value;
-            const placeholderUrl = div.querySelector('.video-placeholder-url').value;
+            const placeholderUrl = div.querySelector('.video-placeholder-url').value.trim() || defaultPlaceholderUrl;
             
             // Validate: channel must exist, UID must be a valid number and not 0
             if (channel && !isNaN(uid) && uid !== 0) {
@@ -3818,6 +3875,57 @@ function collectVideoInputs() {
     return videoInputs;
 }
 
+function validateCloudTranscodingConfig({ audioInputs, videoInputs, outputs, streamProcessMode }) {
+    if (!outputs || outputs.length === 0) {
+        return "At least one output is required";
+    }
+
+    const hasRtcOutput = outputs.some(output => output.rtc);
+    const hasCdnOutput = outputs.some(output => output.streamUrl);
+
+    // TODO: Re-enable after user verifies Agora API behavior for mixed RTC+CDN outputs in one task.
+    // Docs say one task cannot mix RTC and CDN outputs; validation was disabled so the API can reject instead.
+    // if (hasRtcOutput && hasCdnOutput) {
+    //     return "One task cannot mix RTC and CDN outputs (Agora limit). Push to RTC and CDN with two separate tasks — each with only RTC or only CDN outputs.";
+    // }
+
+    if (hasRtcOutput) {
+        const rtcOutputChannels = outputs
+            .filter(output => output.rtc)
+            .map(output => output.rtc.rtcChannel);
+        if (new Set(rtcOutputChannels).size > 1) {
+            return "RTC outputs in one task must target the same rtcChannel. Use a second task for another RTC channel.";
+        }
+    }
+
+    const rtcInputChannels = [
+        ...audioInputs.filter(input => input.rtc).map(input => input.rtc.rtcChannel),
+        ...videoInputs.filter(input => input.rtc).map(input => input.rtc.rtcChannel)
+    ];
+    if (rtcInputChannels.length > 0 && new Set(rtcInputChannels).size > 1) {
+        return "All RTC audio and video inputs must use the same rtcChannel.";
+    }
+
+    const effectiveMode = streamProcessMode && streamProcessMode !== "mix" ? streamProcessMode : null;
+    if (effectiveMode === "heterogeneous-single" || effectiveMode === "single") {
+        if (audioInputs.length > 1) {
+            return `In ${effectiveMode} mode, audioInputs may contain at most one item.`;
+        }
+        if (videoInputs.length > 1) {
+            return `In ${effectiveMode} mode, videoInputs may contain at most one item.`;
+        }
+    }
+
+    const hasRawOutput = outputs.some(
+        output => output.videoOption && output.videoOption.mode === "RAW"
+    );
+    if (hasRawOutput && videoInputs.length !== 1) {
+        return "When any output uses video mode RAW, exactly one video input is required.";
+    }
+
+    return null;
+}
+
 function collectOutputs() {
     const container = document.getElementById('ct-outputs-container');
     const outputDivs = container.querySelectorAll('[id^="output-"]');
@@ -3832,6 +3940,7 @@ function collectOutputs() {
         const videoFps = parseInt(div.querySelector('.output-video-fps').value) || 30;
         const videoCodec = div.querySelector('.output-video-codec').value || "H264";
         const videoMode = div.querySelector('.output-video-mode').value || null;
+        const lowBitrateHighQuality = div.querySelector('.output-low-bitrate-hq')?.checked || false;
         
         if (type === 'rtc') {
             const channel = div.querySelector('.output-channel').value;
@@ -3860,6 +3969,9 @@ function collectOutputs() {
                 if (videoMode) {
                     output.videoOption.mode = videoMode;
                 }
+                if (lowBitrateHighQuality) {
+                    output.videoOption.lowBitrateHighQuality = true;
+                }
                 outputs.push(output);
             }
         } else {
@@ -3881,6 +3993,9 @@ function collectOutputs() {
                 };
                 if (videoMode) {
                     output.videoOption.mode = videoMode;
+                }
+                if (lowBitrateHighQuality) {
+                    output.videoOption.lowBitrateHighQuality = true;
                 }
                 outputs.push(output);
             }
@@ -3969,9 +4084,14 @@ async function acquireTranscoding() {
     
     // Collect outputs
     const outputs = collectOutputs();
-    
-    if (outputs.length === 0) {
-        showPopup("At least one output is required");
+    const configValidationError = validateCloudTranscodingConfig({
+        audioInputs,
+        videoInputs,
+        outputs,
+        streamProcessMode: streamProcessMode || "mix"
+    });
+    if (configValidationError) {
+        showPopup(configValidationError);
         return;
     }
     
@@ -4000,7 +4120,7 @@ async function acquireTranscoding() {
             transcodingInstanceId = instanceId; // Save instanceId for reuse
             document.getElementById("ct-builder-token").value = result.tokenName;
             document.getElementById("ct-instance-id").value = instanceId; // Update UI with the instanceId used
-            showPopup("Builder token acquired successfully! Use it within 2 seconds to create a task.");
+            showPopup("Builder token acquired! Create the task within 2 seconds (token valid up to 5 minutes).");
         } else {
             showPopup(`Error: ${result.message || "Failed to acquire builder token"}`);
         }
@@ -4035,16 +4155,20 @@ async function createTranscoding() {
         return;
     }
     
+    const streamProcessMode = document.getElementById("ct-stream-mode").value || "mix";
+
     // Collect outputs
     const outputs = collectOutputs();
-    
-    if (outputs.length === 0) {
-        showPopup("At least one output is required");
+    const configValidationError = validateCloudTranscodingConfig({
+        audioInputs,
+        videoInputs,
+        outputs,
+        streamProcessMode
+    });
+    if (configValidationError) {
+        showPopup(configValidationError);
         return;
     }
-    
-    // Get stream process mode
-    const streamProcessMode = document.getElementById("ct-stream-mode").value || "mix";
     
     // Get transcoder settings
     const idleTimeout = parseInt(document.getElementById("ct-idle-timeout").value) || 300;
@@ -4133,6 +4257,7 @@ async function createTranscoding() {
         
         if (result.taskId) {
             transcodingTaskId = result.taskId;
+            transcodingSequenceId = 0;
             document.getElementById("ct-task-id").value = result.taskId;
             document.getElementById("ct-info").innerHTML = `
                 <div class="modern-panel p-2">
@@ -4179,8 +4304,13 @@ async function queryTranscoding() {
         const result = await response.json();
         responseEl.textContent = JSON.stringify(result, null, 2);
         
+        if (!response.ok) {
+            document.getElementById("ct-info").innerHTML = `<p class="text-sm text-red-400">Query failed: ${result.message || response.status}</p>`;
+            showPopup(`Query failed: ${result.message || response.status}`);
+            return;
+        }
+        
         if (result.taskId) {
-            // Single task response
             document.getElementById("ct-info").innerHTML = `
                 <div class="modern-panel p-2">
                     <p class="font-semibold">Task ID: ${result.taskId}</p>
@@ -4188,10 +4318,11 @@ async function queryTranscoding() {
                     <p class="text-sm text-gray-400">Created: ${result.createTs ? new Date(result.createTs * 1000).toLocaleString() : "N/A"}</p>
                 </div>
             `;
+            showPopup("Query completed!");
         } else {
-            document.getElementById("ct-info").innerHTML = '<p class="text-sm text-gray-400">No active transcoding tasks</p>';
+            document.getElementById("ct-info").innerHTML = `<p class="text-sm text-gray-400">${result.message || "Unexpected response (no taskId)"}</p>`;
+            showPopup(result.message || "Unexpected query response");
         }
-        showPopup("Query completed!");
     } catch (error) {
         responseEl.textContent = `Error: ${error.message}`;
         showPopup(`Error: ${error.message}`);
@@ -4214,9 +4345,9 @@ async function updateTranscoding() {
         return;
     }
     
-    // Increment sequence ID
-    transcodingSequenceId++;
+    // First update uses sequenceId 0 per Agora docs
     const sequenceId = transcodingSequenceId;
+    transcodingSequenceId++;
     const updateMask = "services.cloudTranscoder.config";
     
     // Collect audio and video inputs
@@ -4228,15 +4359,21 @@ async function updateTranscoding() {
         return;
     }
     
+    const streamProcessMode = document.getElementById("ct-stream-mode").value || "mix";
+
     // Collect outputs
     const outputs = collectOutputs();
-    
-    if (outputs.length === 0) {
-        showPopup("At least one output is required");
+    const configValidationError = validateCloudTranscodingConfig({
+        audioInputs,
+        videoInputs,
+        outputs,
+        streamProcessMode
+    });
+    if (configValidationError) {
+        showPopup(configValidationError);
         return;
     }
     
-    const streamProcessMode = document.getElementById("ct-stream-mode").value || null;
     const idleTimeout = parseInt(document.getElementById("ct-idle-timeout").value) || 300;
     const canvasWidth = parseInt(document.getElementById("ct-canvas-width").value) || 1280;
     const canvasHeight = parseInt(document.getElementById("ct-canvas-height").value) || 720;
@@ -5040,52 +5177,31 @@ async function generateToken(service) {
             tokenFieldId = "audience-token";
             role = RtcRole.SUBSCRIBER;
         } else {
-            // Handle ct-input and ct-output first
-            if (service === "ct-input") {
-                channel = document.getElementById("ct-input-channel").value;
-                uidInput = document.getElementById("ct-input-uid").value;
-                const parsedUid = (uidInput && uidInput.toString().trim() !== "") ? parseInt(uidInput) : NaN;
-                uid = !isNaN(parsedUid) ? parsedUid : 0;
-                tokenFieldId = "ct-input-token";
-                role = RtcRole.SUBSCRIBER;
-            } else if (service === "ct-output") {
-                channel = document.getElementById("ct-output-channel").value || document.getElementById("ct-input-channel").value;
-                uidInput = document.getElementById("ct-output-uid").value;
-                const parsedUid = (uidInput && uidInput.toString().trim() !== "") ? parseInt(uidInput) : NaN;
-                uid = !isNaN(parsedUid) ? parsedUid : 0;
-                tokenFieldId = "ct-output-token";
-                role = RtcRole.PUBLISHER;
-            } else {
-                // Service-specific token generation
-                const channelMap = {
-                    mp: "mp-channel",
-                    mps: "mps-channel",
-                    mg: "mg-channel",
-                    ct: "ct-channel"
-                };
-                channel = document.getElementById(channelMap[service]).value;
-                
-                const uidMap = {
-                    mp: "mp-uid",
-                    mps: "mps-uid",
-                    mg: "mg-uid",
-                    ct: "ct-uid"
-                };
-                uidInput = document.getElementById(uidMap[service]).value;
-                const parsedUid = (uidInput && uidInput.toString().trim() !== "") ? parseInt(uidInput) : NaN;
-                uid = !isNaN(parsedUid) ? parsedUid : 0;
+            const channelMap = {
+                mp: "mp-channel",
+                mps: "mps-channel",
+                mg: "mg-channel"
+            };
+            channel = document.getElementById(channelMap[service]).value;
+            
+            const uidMap = {
+                mp: "mp-uid",
+                mps: "mps-uid",
+                mg: "mg-uid"
+            };
+            uidInput = document.getElementById(uidMap[service]).value;
+            const parsedUid = (uidInput && uidInput.toString().trim() !== "") ? parseInt(uidInput) : NaN;
+            uid = !isNaN(parsedUid) ? parsedUid : 0;
 
-                // Determine role: publisher for Media Push host, subscriber for others
-                role = (service === "mps") ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
+            // Determine role: publisher for Media Push host, subscriber for others
+            role = (service === "mps") ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
 
-                const tokenMap = {
-                    mp: "mp-token",
-                    mps: "mps-token",
-                    mg: "mg-token",
-                    ct: "ct-token"
-                };
-                tokenFieldId = tokenMap[service];
-            }
+            const tokenMap = {
+                mp: "mp-token",
+                mps: "mps-token",
+                mg: "mg-token"
+            };
+            tokenFieldId = tokenMap[service];
         }
         
         if (!channel) {
@@ -5256,6 +5372,17 @@ function copyCTCreateJSON() {
         }
         
         body.services.cloudTranscoder.config.transcoder.outputs = outputs;
+
+        const configValidationError = validateCloudTranscodingConfig({
+            audioInputs,
+            videoInputs,
+            outputs,
+            streamProcessMode
+        });
+        if (configValidationError) {
+            showPopup(configValidationError);
+            return;
+        }
         
         showJSONModal('Cloud Transcoding Create Task JSON', body);
     } catch (error) {

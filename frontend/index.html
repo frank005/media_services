@@ -757,6 +757,7 @@
                         <div id="ct-outputs-container">
                             <!-- Outputs will be added here dynamically -->
                         </div>
+                        <p class="text-xs text-gray-500 mt-1">Multiple CDN outputs in one task is fine. Client-side RTC+CDN mix check is disabled — Agora API will accept or reject mixed output types.</p>
                         
                         <h3 class="text-lg font-semibold mt-4">Transcoder Settings</h3>
                         <label class="text-sm text-gray-400">Stream Process Mode:</label>
@@ -779,7 +780,7 @@
                             <option value="FILL">FILL</option>
                             <option value="FIT">FIT</option>
                         </select>
-                        <input id="ct-placeholder-image" type="text" placeholder="Placeholder Image URL (optional)" title="Default placeholder image URL displayed when a user stops publishing video. Must be a valid image URL with jpg or png suffix" />
+                        <input id="ct-placeholder-image" type="text" placeholder="Default Placeholder Image URL (optional)" title="Default placeholder image applied to RTC video inputs when their per-input placeholder URL is empty. Must be a valid image URL with jpg or png suffix" />
                         
                         <div class="flex justify-between items-center mt-4">
                             <h3 class="text-lg font-semibold" title="Watermarks to overlay on the canvas. Each watermark can be positioned and sized independently">Watermarks</h3>
@@ -799,7 +800,7 @@
                                     </svg>
                                 </button>
                             </div>
-                            <button onclick="queryTranscoding()" class="modern-btn modern-btn-warning">Query Tasks</button>
+                            <button onclick="queryTranscoding()" class="modern-btn modern-btn-warning">Query Task</button>
                             <div class="flex gap-2">
                                 <button onclick="updateTranscoding()" class="modern-btn modern-btn-secondary flex-1">Update Task</button>
                                 <button onclick="copyCTUpdateJSON()" class="modern-btn modern-btn-secondary modern-btn-icon" title="Copy Update JSON">

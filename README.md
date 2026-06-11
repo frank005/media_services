@@ -31,13 +31,10 @@ A comprehensive demo application showcasing four Agora media services:
 - Join channel as audience member to view gateway streams
 
 ### Cloud Transcoding
-- Acquire transcoding resources
-- Create transcoding configurations
-- Query transcoding status
-- Update transcoding settings
-- Destroy transcoding sessions
-- Create and query transcoding templates
-- Join channel as audience member
+- Acquire builder token and create/update/destroy transcoding tasks
+- Query task status by Task ID
+- Create and query ABR transcoding templates
+- Mix multiple RTC/CDN inputs; publish to RTC channel(s) or CDN URL(s) per task
 
 ## Project Structure
 
@@ -147,17 +144,19 @@ This will start a local server with the proxy functions available at `http://loc
 7. Click "Join as Audience" to view the stream
 
 ### Cloud Transcoding
-1. Enter channel name
-2. Click "Create" to start a transcoding task
-3. Use "Query" to list all transcoding tasks
-4. Use "Update" to modify transcoding settings (requires Task ID)
-5. Use "Destroy" to delete a transcoding task
-6. Click "Join as Audience" to view transcoded stream
-7. Note: Acquire and Template functions are not available via REST API
+1. Configure audio/video inputs, canvas, watermarks, and outputs in the Cloud Transcoding tab
+2. Click **Acquire Builder Token** (token is valid up to 5 minutes; create the task within **2 seconds** for best results)
+3. Click **Create Task** (requires the builder token from step 2)
+4. One task supports **either** RTC outputs **or** CDN outputs — not both. To push to RTC and CDN, create **two tasks** with the same inputs.
+5. Use **Query Task** with a Task ID (query-by-ID only; no list-all API)
+6. Use **Update Task** (Task ID, builder token, `sequenceId` starting at 0)
+7. Use **Destroy Task** to stop a task
+8. Use **Create/Update Template** and **Query Templates** for ABR templates
+9. Input tokens: uid `0` on input rows; output tokens use the output UID
 
 ## API Endpoints Used
 
-All endpoints use the base URL `https://api.agora.io/v1/projects/{appid}/`
+Most Media Pull, Media Push, and Media Gateway calls use `https://api.agora.io/v1/projects/{appid}/` (with optional region prefix). Cloud Transcoding uses **`https://api.sd-rtn.com`** — see that section below.
 
 ### Media Pull
 - `POST /v1/projects/{appid}/cloud-player/players` - Create Cloud Player
@@ -175,15 +174,18 @@ All endpoints use the base URL `https://api.agora.io/v1/projects/{appid}/`
 - `GET /v1/projects/{appid}/rtls/ingress/streamkeys` - List Streaming Keys
 - `DELETE /v1/projects/{appid}/rtls/ingress/streamkeys/{streamKey}` - Delete Streaming Key
 
-### Cloud Transcoding
-- `POST /v1/projects/{appid}/cloud-transcoding/tasks` - Create Transcoding Task
-- `GET /v1/projects/{appid}/cloud-transcoding/tasks` - List Transcoding Tasks
-- `PATCH /v1/projects/{appid}/cloud-transcoding/tasks/{taskId}` - Update Transcoding Task
-- `DELETE /v1/projects/{appid}/cloud-transcoding/tasks/{taskId}` - Delete Transcoding Task
+### Cloud Transcoding (RTSC API on `api.sd-rtn.com`)
+- `POST /v1/projects/{appid}/rtsc/cloud-transcoder/builderTokens` - Acquire builder token
+- `POST /v1/projects/{appid}/rtsc/cloud-transcoder/tasks?builderToken=` - Create transcoding task
+- `GET /v1/projects/{appid}/rtsc/cloud-transcoder/tasks/{taskId}?builderToken=` - Query task by ID
+- `PATCH /v1/projects/{appid}/rtsc/cloud-transcoder/tasks/{taskId}?builderToken=&sequenceId=&updateMask=` - Update task
+- `DELETE /v1/projects/{appid}/rtsc/cloud-transcoder/tasks/{taskId}?builderToken=` - Destroy task
+- `POST /v1/projects/{appid}/rtls/abr/config/codecs/{codecId}` - Create or update transcoding template
+- `GET /v1/projects/{appid}/rtls/abr/config/codecs` - Query transcoding templates
 
 ## Video Player
 
-Each service tab includes a video player that allows you to join the channel as an audience member. The player will automatically display remote video tracks when available.
+Media Pull, Media Push, and Media Gateway tabs include a player to join the channel as audience. The Cloud Transcoding tab does not include a player — subscribe to the **output** RTC channel (or CDN playback URL) separately.
 
 ## Browser Compatibility
 
