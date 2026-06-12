@@ -3395,12 +3395,13 @@ function addAudioInput() {
             <option value="cdn">CDN Stream</option>
         </select>
         <div class="audio-rtc-fields">
-            <input type="text" class="audio-channel" placeholder="RTC Channel" value="testChannel" data-tooltip="The Agora RTC channel name where the audio stream is published" />
-            <input type="number" class="audio-uid" placeholder="RTC UID" value="${1001 + existingInputs.length}" data-tooltip="The UID of the user publishing the audio stream in the RTC channel. Must be a valid number and not 0." />
+            <input type="text" class="audio-channel" placeholder="RTC Channel (same as host)" value="testChannel" data-tooltip="Channel where your host is publishing. Must match Host Join channel above." />
+            <input type="number" class="audio-uid" placeholder="Publisher UID (e.g. 1001)" value="${1001 + existingInputs.length}" data-tooltip="UID of the user whose audio to pull (your Host Join UID, e.g. 1001). This is NOT the transcoder's join UID." />
             <div class="flex gap-2">
-                <input type="text" class="audio-token flex-1" placeholder="RTC Token (optional)" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Generate with uid 0 for input tokens." />
-                <button type="button" onclick="generateTokenForAudioInput('${inputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC input token using uid 0 (required by Agora for input rtcToken)">Generate</button>
+                <input type="text" class="audio-token flex-1" placeholder="Input token (Generate uses uid 0)" data-tooltip="Token for the transcoder to join the input channel. Generate here (uid 0) — do not reuse your Host Join token for uid 1001." />
+                <button type="button" onclick="generateTokenForAudioInput('${inputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Build input rtcToken with uid 0 (Agora requirement). Lets transcoder join and subscribe to rtcUid above.">Generate (uid 0)</button>
             </div>
+            <p class="text-xs text-gray-500 mt-1">Pull audio from publisher UID above; token is always generated with uid 0.</p>
         </div>
         <div class="audio-cdn-fields" style="display: none;">
             <input type="text" class="audio-stream-url" placeholder="CDN Stream URL" data-tooltip="The URL of the CDN audio source stream" />
@@ -3495,12 +3496,13 @@ function addVideoInput() {
             <option value="cdn">CDN Stream</option>
         </select>
         <div class="video-rtc-fields">
-            <input type="text" class="video-channel" placeholder="RTC Channel" value="testChannel" data-tooltip="The Agora RTC channel name where the video stream is published" />
-            <input type="number" class="video-uid" placeholder="RTC UID" value="${1001 + existingInputs.length}" data-tooltip="The UID of the user publishing the video stream in the RTC channel. Must be a valid number and not 0." />
+            <input type="text" class="video-channel" placeholder="RTC Channel (same as host)" value="testChannel" data-tooltip="Channel where your host is publishing. Must match Host Join channel above." />
+            <input type="number" class="video-uid" placeholder="Publisher UID (e.g. 1001)" value="${1001 + existingInputs.length}" data-tooltip="UID of the user whose video to pull (your Host Join UID, e.g. 1001). This is NOT the transcoder's join UID." />
             <div class="flex gap-2">
-                <input type="text" class="video-token flex-1" placeholder="RTC Token (optional)" data-tooltip="Token for authentication to join the RTC channel. Required for secure channels. Generate with uid 0 for input tokens." />
-                <button type="button" onclick="generateTokenForVideoInput('${inputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC input token using uid 0 (required by Agora for input rtcToken)">Generate</button>
+                <input type="text" class="video-token flex-1" placeholder="Input token (Generate uses uid 0)" data-tooltip="Token for the transcoder to join the input channel. Generate here (uid 0) — do not reuse your Host Join token for uid 1001." />
+                <button type="button" onclick="generateTokenForVideoInput('${inputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Build input rtcToken with uid 0 (Agora requirement). Lets transcoder join and subscribe to rtcUid above.">Generate (uid 0)</button>
             </div>
+            <p class="text-xs text-gray-500 mt-1">Pull video from publisher UID above; token is always generated with uid 0.</p>
             <input type="text" class="video-placeholder-url" placeholder="Placeholder Image URL (optional)" data-tooltip="URL of the placeholder image displayed when the user is offline. Falls back to the global default placeholder if empty." />
         </div>
         <div class="video-cdn-fields" style="display: none;">
@@ -3544,11 +3546,11 @@ function addOutput() {
             <option value="cdn">CDN Stream</option>
         </select>
         <div class="output-rtc-fields">
-            <input type="text" class="output-channel" placeholder="RTC Channel" value="testChannel" data-tooltip="The Agora RTC channel name where the transcoded audio and video will be published" />
-            <input type="number" class="output-uid" placeholder="RTC UID" value="${999 + existingOutputs.length}" data-tooltip="The UID of the RTC channel for the transcoded streams. Must be different from other users in the channel. Use this UID when generating the token." />
+            <input type="text" class="output-channel" placeholder="Output RTC Channel" value="testChannel" data-tooltip="Channel where the transcoded stream will be published (can differ from input channel)." />
+            <input type="number" class="output-uid" placeholder="Transcoder publish UID" value="${999 + existingOutputs.length}" data-tooltip="UID the transcoder uses when publishing the output stream. Must differ from input publisher UID (e.g. 1001). Generate token for THIS uid." />
             <div class="flex gap-2">
-                <input type="text" class="output-token flex-1" placeholder="RTC Token (required)" data-tooltip="Token for authentication to join the output RTC channel. Required for secure channels. Use the output UID when generating this token." />
-                <button onclick="generateTokenForOutput('${outputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Generate an RTC token for this output using the configured UID and channel name">Generate</button>
+                <input type="text" class="output-token flex-1" placeholder="Output token (for publish UID above)" data-tooltip="Token for the output channel. Generate uses the output rtcUid above — not uid 0." />
+                <button onclick="generateTokenForOutput('${outputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Generate token for this output's rtcUid (transcoder publishes as that UID)">Generate</button>
             </div>
         </div>
         <div class="output-cdn-fields" style="display: none;">
@@ -3677,7 +3679,7 @@ async function generateTokenForAudioInput(inputId) {
         const token = await generateRtcInputToken(channelInput.value);
         if (tokenInput) {
             tokenInput.value = token;
-            showPopup("Input token generated with uid 0");
+            showPopup("Input token generated (uid 0 — for transcoder join, not your host uid)");
         }
     } catch (error) {
         showPopup(`Error generating token: ${error.message}`);
@@ -3698,7 +3700,7 @@ async function generateTokenForVideoInput(inputId) {
         const token = await generateRtcInputToken(channelInput.value);
         if (tokenInput) {
             tokenInput.value = token;
-            showPopup("Input token generated with uid 0");
+            showPopup("Input token generated (uid 0 — for transcoder join, not your host uid)");
         }
     } catch (error) {
         showPopup(`Error generating token: ${error.message}`);
@@ -3880,23 +3882,21 @@ function validateCloudTranscodingConfig({ audioInputs, videoInputs, outputs, str
         return "At least one output is required";
     }
 
-    const hasRtcOutput = outputs.some(output => output.rtc);
-    const hasCdnOutput = outputs.some(output => output.streamUrl);
-
-    // TODO: Re-enable after user verifies Agora API behavior for mixed RTC+CDN outputs in one task.
-    // Docs say one task cannot mix RTC and CDN outputs; validation was disabled so the API can reject instead.
+    // Output-mix validation disabled for API experimentation (multi-RTC resolutions, RTC+CDN, etc.).
+    // Re-enable after confirming what Agora actually supports vs rejects at runtime.
+    // const hasRtcOutput = outputs.some(output => output.rtc);
+    // const hasCdnOutput = outputs.some(output => output.streamUrl);
     // if (hasRtcOutput && hasCdnOutput) {
-    //     return "One task cannot mix RTC and CDN outputs (Agora limit). Push to RTC and CDN with two separate tasks — each with only RTC or only CDN outputs.";
+    //     return "Do not mix RTC and CDN outputs in one task. The API may accept the task but only one destination usually works — use two tasks (same inputs, one RTC-only and one CDN-only).";
     // }
-
-    if (hasRtcOutput) {
-        const rtcOutputChannels = outputs
-            .filter(output => output.rtc)
-            .map(output => output.rtc.rtcChannel);
-        if (new Set(rtcOutputChannels).size > 1) {
-            return "RTC outputs in one task must target the same rtcChannel. Use a second task for another RTC channel.";
-        }
-    }
+    // if (hasRtcOutput) {
+    //     const rtcOutputChannels = outputs
+    //         .filter(output => output.rtc)
+    //         .map(output => output.rtc.rtcChannel);
+    //     if (new Set(rtcOutputChannels).size > 1) {
+    //         return "RTC outputs in one task must target the same rtcChannel. Use a second task for another RTC channel.";
+    //     }
+    // }
 
     const rtcInputChannels = [
         ...audioInputs.filter(input => input.rtc).map(input => input.rtc.rtcChannel),

@@ -147,12 +147,16 @@ This will start a local server with the proxy functions available at `http://loc
 1. Configure audio/video inputs, canvas, watermarks, and outputs in the Cloud Transcoding tab
 2. Click **Acquire Builder Token** (token is valid up to 5 minutes; create the task within **2 seconds** for best results)
 3. Click **Create Task** (requires the builder token from step 2)
-4. One task supports **either** RTC outputs **or** CDN outputs — not both. To push to RTC and CDN, create **two tasks** with the same inputs.
+4. **Client output validation is temporarily disabled** so you can test multi-RTC outputs, mixed RTC+CDN, etc. against the API. Agora docs suggest separate tasks for RTC+CDN and differing configs; multi-resolution may use ABR templates (`channel_codecId`). Re-enable validation in `validateCloudTranscodingConfig` once behavior is confirmed.
 5. Use **Query Task** with a Task ID (query-by-ID only; no list-all API)
 6. Use **Update Task** (Task ID, builder token, `sequenceId` starting at 0)
 7. Use **Destroy Task** to stop a task
 8. Use **Create/Update Template** and **Query Templates** for ABR templates
-9. Input tokens: uid `0` on input rows; output tokens use the output UID
+9. **RTC input tokens vs host tokens** (see info box in the Cloud Transcoding tab):
+   - **Host Join** (top of page): your camera/mic UID (e.g. `1001`) and a token generated for that UID.
+   - **Input `rtcUid`**: which publisher to pull — usually the same as your host UID (`1001`).
+   - **Input `rtcToken`**: generate with uid **`0`** (Agora assigns the transcoder a random join UID; uid `0` is “any UID” for that token). Do not paste your host token here.
+   - **Output `rtcToken`**: generate for the output row’s **`rtcUid`** — the UID the transcoder uses when publishing the mixed stream.
 
 ## API Endpoints Used
 

@@ -733,6 +733,16 @@
                             <button onclick="acquireTranscoding()" class="modern-btn modern-btn-primary" title="Acquire a builder token for creating transcoding tasks">Acquire</button>
                         </div>
                         <input id="ct-instance-id" type="text" placeholder="Instance ID (optional, auto-generated if empty)" title="Optional instance ID for the transcoding task. If empty, a unique ID will be auto-generated" />
+
+                        <div class="modern-panel p-3 mt-2 text-sm text-gray-300 space-y-2 border border-blue-900/40">
+                            <p class="font-semibold text-blue-200">RTC inputs: two different UIDs</p>
+                            <ul class="list-disc list-inside space-y-1 text-gray-400">
+                                <li><strong class="text-gray-300">Host Join (top of page):</strong> your camera/mic — e.g. UID <code>1001</code> with a token generated for <code>1001</code>.</li>
+                                <li><strong class="text-gray-300">Input <code>rtcUid</code>:</strong> which publisher to pull — same as the host, e.g. <code>1001</code>. Not the transcoder’s join UID.</li>
+                                <li><strong class="text-gray-300">Input token (Generate):</strong> Agora requires uid <code>0</code> when building this token. The transcoder joins the channel with a random UID; uid <code>0</code> means “any UID” for that join. Do not paste your host token here.</li>
+                                <li><strong class="text-gray-300">Output token (Generate):</strong> use the output row’s <code>rtcUid</code> — that is the UID the transcoder uses when publishing the mixed stream.</li>
+                            </ul>
+                        </div>
                         
                         <div class="flex justify-between items-center mt-4">
                             <h3 class="text-lg font-semibold" title="Audio input sources. Supports RTC audio streams and CDN audio streams. Multiple inputs will be mixed">Audio Inputs</h3>
@@ -757,7 +767,7 @@
                         <div id="ct-outputs-container">
                             <!-- Outputs will be added here dynamically -->
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">Multiple CDN outputs in one task is fine. Client-side RTC+CDN mix check is disabled — Agora API will accept or reject mixed output types.</p>
+                        <p class="text-xs text-amber-600/90 mt-1">Output mix validation is <strong>off</strong> for testing — try multiple RTC rows (different resolutions/UIDs), RTC+CDN, etc. The API accepts or rejects; note what actually works.</p>
                         
                         <h3 class="text-lg font-semibold mt-4">Transcoder Settings</h3>
                         <label class="text-sm text-gray-400">Stream Process Mode:</label>
