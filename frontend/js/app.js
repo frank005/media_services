@@ -3401,7 +3401,6 @@ function addAudioInput() {
                 <input type="text" class="audio-token flex-1" placeholder="Input token (Generate uses uid 0)" data-tooltip="Token for the transcoder to join the input channel. Generate here (uid 0) — do not reuse your Host Join token for uid 1001." />
                 <button type="button" onclick="generateTokenForAudioInput('${inputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Build input rtcToken with uid 0 (Agora requirement). Lets transcoder join and subscribe to rtcUid above.">Generate (uid 0)</button>
             </div>
-            <p class="text-xs text-gray-500 mt-1">Pull audio from publisher UID above; token is always generated with uid 0.</p>
         </div>
         <div class="audio-cdn-fields" style="display: none;">
             <input type="text" class="audio-stream-url" placeholder="CDN Stream URL" data-tooltip="The URL of the CDN audio source stream" />
@@ -3502,7 +3501,6 @@ function addVideoInput() {
                 <input type="text" class="video-token flex-1" placeholder="Input token (Generate uses uid 0)" data-tooltip="Token for the transcoder to join the input channel. Generate here (uid 0) — do not reuse your Host Join token for uid 1001." />
                 <button type="button" onclick="generateTokenForVideoInput('${inputId}')" class="modern-btn modern-btn-secondary" data-tooltip="Build input rtcToken with uid 0 (Agora requirement). Lets transcoder join and subscribe to rtcUid above.">Generate (uid 0)</button>
             </div>
-            <p class="text-xs text-gray-500 mt-1">Pull video from publisher UID above; token is always generated with uid 0.</p>
             <input type="text" class="video-placeholder-url" placeholder="Placeholder Image URL (optional)" data-tooltip="URL of the placeholder image displayed when the user is offline. Falls back to the global default placeholder if empty." />
         </div>
         <div class="video-cdn-fields" style="display: none;">

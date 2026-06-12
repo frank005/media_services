@@ -147,7 +147,7 @@ This will start a local server with the proxy functions available at `http://loc
 1. Configure audio/video inputs, canvas, watermarks, and outputs in the Cloud Transcoding tab
 2. Click **Acquire Builder Token** (token is valid up to 5 minutes; create the task within **2 seconds** for best results)
 3. Click **Create Task** (requires the builder token from step 2)
-4. **Client output validation is temporarily disabled** so you can test multi-RTC outputs, mixed RTC+CDN, etc. against the API. Agora docs suggest separate tasks for RTC+CDN and differing configs; multi-resolution may use ABR templates (`channel_codecId`). Re-enable validation in `validateCloudTranscodingConfig` once behavior is confirmed.
+4. One task should use **either** RTC outputs **or** CDN outputs per Agora docs; use two tasks for RTC + CDN. Multi-resolution tiers may use ABR templates (`channel_codecId`).
 5. Use **Query Task** with a Task ID (query-by-ID only; no list-all API)
 6. Use **Update Task** (Task ID, builder token, `sequenceId` starting at 0)
 7. Use **Destroy Task** to stop a task
